@@ -18,13 +18,20 @@ import multiprocessing as mp
 #import search_provider
 from autogen.retrieve_utils import TEXT_FORMATS, get_file_from_url, is_url
 import os
+from dotenv import load_dotenv
+import os 
+
+# Get API KEY from .env file
+load_dotenv()
+api_key = os.getenv('API_KEY')
+
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 config_list = [
     {
          'model':"gpt-4o-2024-05-13",
-         'api_key' : ''
+         'api_key' : 'API_KEY'
      }]
 
 llm_config={

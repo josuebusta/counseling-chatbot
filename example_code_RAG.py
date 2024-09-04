@@ -9,7 +9,7 @@ Created on Thu Mar 21 09:53:45 2024
 import multiprocessing as mp
 import os
 from pathlib import Path
-
+from dotenv import load_dotenv
 import autogen
 import chromadb
 import gradio as gr
@@ -19,8 +19,13 @@ from autogen.agentchat.contrib.retrieve_user_proxy_agent import (
     RetrieveUserProxyAgent,
 )
 from autogen.retrieve_utils import TEXT_FORMATS, get_file_from_url, is_url
+import os 
 
 TIMEOUT = 60
+
+# Get API KEY from .env file
+load_dotenv()
+api_key = os.getenv('API_KEY')
 
 
 
@@ -126,7 +131,7 @@ with gr.Blocks() as demo:
         gr.State(
             [
                 {
-                    "api_key": "",
+                    "api_key": "API_KEY",
                     "api_base": "",
                     "api_type": "azure",
                     "api_version": "2023-07-01-preview",
@@ -165,7 +170,7 @@ with gr.Blocks() as demo:
             if not config_list:
                 config_list = [
                     {
-                        "api_key": "",
+                        "api_key": "API_KEY",
                         "api_base": "",
                         "api_type": "azure",
                         "api_version": "2023-07-01-preview",

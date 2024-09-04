@@ -14,7 +14,13 @@ from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
 import time
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+import os 
 
+
+# Get API KEY from .env file
+load_dotenv()
+api_key = os.getenv('API_KEY')
 
 
 def search_provider(zip_code):
@@ -126,7 +132,7 @@ import tqdm as notebook_tqdm
 config_list = [
     {
         'model': 'gpt-4-0125-preview',
-        'OPENAI_API_KEY': '',  # Ensure to replace with your actual API key
+        'OPENAI_API_KEY': 'API_KEY',  # Ensure to replace with your actual API key
     }
 ]
 
