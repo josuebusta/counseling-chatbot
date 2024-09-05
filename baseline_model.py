@@ -7,10 +7,13 @@ from dotenv import load_dotenv
 
 # Load dotenv file 
 load_dotenv()
+api_key = os.getenv('API_KEY')
 
 # Retrieve API key
-client = OpenAI()
+client = OpenAI(api_key=api_key)
 
+
+# Chat creation request
 completion = client.chat.completions.create(
     model="gpt-4o-mini",
     messages=[
