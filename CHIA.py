@@ -16,11 +16,10 @@ import time
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import os 
+from openai import OpenAI
 
 
-# Get API KEY from .env file
-load_dotenv()
-api_key = os.getenv('API_KEY')
+
 
 
 def search_provider(zip_code):
@@ -128,23 +127,30 @@ from autogen.retrieve_utils import TEXT_FORMATS, get_file_from_url, is_url
 # from .autonotebook import tqdm as notebook_tqdm
 import tqdm as notebook_tqdm
 
+# Load dotenv file 
+load_dotenv()
+api_key = os.getenv('OPENAI_API_KEY')
+
+# Retrieve API key
+client = OpenAI(api_key=api_key)
+
+
 
 config_list = [
     {
         'model': 'gpt-4-0125-preview',
-        'OPENAI_API_KEY': 'API_KEY',  # Ensure to replace with your actual API key
+        'OPENAI_API_KEY': api_key,  # Ensure to replace with your actual API key
     }
 ]
 
-llm_config = [
-    {
-    #"request_timeout": 600,
+llm_config = {
+    # "request_timeout": 600,
     "seed": 42,
     "config_list": config_list,
     "temperature": 0,
     "top_p": 1,
     }
-]
+
 
 
 #TIMEOUT = 60
@@ -153,7 +159,7 @@ llm_config_counselor = {
 "functions": [
     {
         "name": "assess_hiv_risk",
-        "description": "ask patients a couple of questions to assess their HIV risk",
+        "description": "Ask patients a couple of questions to assess their HIV risk",
         "parameters": {
             "type": "object",
             "properties": {
@@ -182,7 +188,6 @@ llm_config_counselor = {
 ],
 "config_list": llm_config}
 
-
 def initialize_agents(llm_config):
     llm_config_counselor = {
     "functions": [
@@ -219,63 +224,11 @@ def initialize_agents(llm_config):
 
     #autogen.ChatCompletion.start_logging()
 
+
+    # Set docker to false temporarily
     patients = autogen.UserProxyAgent(
         name="patients",
-        code_execution_config={"last_n_messages": 2, "work_dir": "coding","use_docker":False},
-        max_consecutive_auto_reply=0,
-        is_termination_msg=lambda x: x.get("content", "") and x.get("content", "").rstrip().endswith("TERMINATE"),
-        human_input_mode="TERMINATE",
-        llm_config=llm_config,
-    )
-    
-    counselor = autogen.AssistantAgent(
-        name="counselor",
-        llm_config=llm_config_counselor,
-        code_execution_config=False,
-        system_message="You are an HIV PrEP counselor. You will be guided by the HIV provider to assess patients' risk and conduct motivational interviewing for PrEP if indicated",
-    )
-
-    return patients, counselor
-
-def initialize_agents(llm_config):
-    llm_config_counselor = {
-    "functions": [
-        {
-            "name": "assess_hiv_risk",
-            "description": "ask patients a couple of questions to assess their HIV risk",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "a series of questions",
-                    },
-                },
-                "required": ["questions"],
-            },
-        },
-        {
-            "name": "search_provider",
-            "description": "Visit the website (https://preplocator.org/),input patients' Zipcode to search PrEP providers within a radius of 30 miles, and, scraping website relevant content",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "visit the specified website and input Zip Code",
-                    },
-                },
-                "required": ["Zip Code"],
-            },
-        },
-    ],
-    "config_list": llm_config}
-
-    #autogen.ChatCompletion.start_logging()
-
-    patients = autogen.UserProxyAgent(
-        name="patients",
-        code_execution_config={"last_n_messages": 2, "work_dir": "coding"},
+        code_execution_config={"last_n_messages": 2, "work_dir": "coding", "use_docker": False},
         max_consecutive_auto_reply=0,
         is_termination_msg=lambda x: x.get("content", "") and x.get("content", "").rstrip().endswith("TERMINATE"),
         human_input_mode="TERMINATE",
@@ -292,56 +245,56 @@ def initialize_agents(llm_config):
 
 patients,counselor=initialize_agents(llm_config)
 problem="I would like to assess my HIV risk"
-counselor.initiate_chat(patients, message=problem, silent=False,)
+patients.initiate_chat(counselor, message=problem, silent=False,)
 
 
 
 
 
-def get_description_text():
-    return """
-    # Chatbot for HIV Prevention and Action (CHIA)
+# def get_description_text():
+#     return """
+#     # Chatbot for HIV Prevention and Action (CHIA)
     
-    This demo shows how to use AI agent to conduct motivational interviewing to promote PrEP use.
+#     This demo shows how to use AI agent to conduct motivational interviewing to promote PrEP use.
 
-    """
-
-
-def initiate_chat_with_agent(problem, queue, n_results=3):
-    try:
-        counselor.initiate_chat(
-            patients, problem=problem, silent=False, n_results=n_results
-        )
-        messages = counselor.chat_messages
-        messages = [messages[k] for k in messages.keys()][0]
-        messages = [m["content"] for m in messages if m["role"] == "user"]
-        print("messages: ", messages)
-    except Exception as e:
-        messages = [str(e)]
-    queue.put(messages)
+#     """
 
 
-TIMEOUT = 60
-def chatbot_reply(input_text):
-    """Chat with the agent through terminal."""
-    queue = mp.Queue()
-    process = mp.Process(
-        target=initiate_chat_with_agent,
-        args=(input_text, queue),
-    )
-    process.start()
-    try:
-        # process.join(TIMEOUT+2)
-        messages = queue.get(timeout=TIMEOUT)
-    except Exception as e:
-        messages = [
-            str(e)
-            if len(str(e)) > 0
-            else "Invalid Request to OpenAI, please check your API keys."
-        ]
-    finally:
-        try:
-            process.terminate()
-        except:
-            pass
-    return messages
+# def initiate_chat_with_agent(problem, queue, n_results=3):
+#     try:
+#         counselor.initiate_chat(
+#             patients, problem=problem, silent=False, n_results=n_results
+#         )
+#         messages = counselor.chat_messages
+#         messages = [messages[k] for k in messages.keys()][0]
+#         messages = [m["content"] for m in messages if m["role"] == "user"]
+#         print("messages: ", messages)
+#     except Exception as e:
+#         messages = [str(e)]
+#     queue.put(messages)
+
+
+# TIMEOUT = 60
+# def chatbot_reply(input_text):
+#     """Chat with the agent through terminal."""
+#     queue = mp.Queue()
+#     process = mp.Process(
+#         target=initiate_chat_with_agent,
+#         args=(input_text, queue),
+#     )
+#     process.start()
+#     try:
+#         # process.join(TIMEOUT+2)
+#         messages = queue.get(timeout=TIMEOUT)
+#     except Exception as e:
+#         messages = [
+#             str(e)
+#             if len(str(e)) > 0
+#             else "Invalid Request to OpenAI, please check your API keys."
+#         ]
+#     finally:
+#         try:
+#             process.terminate()
+#         except:
+#             pass
+#     return messages

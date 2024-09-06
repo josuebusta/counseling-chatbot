@@ -23,7 +23,7 @@ import os
 
 # Get API KEY from .env file
 load_dotenv()
-api_key = os.getenv('API_KEY')
+api_key = os.getenv('OPENAI_API_KEY')
 
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -31,7 +31,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 config_list = [
     {
          'model':"gpt-4o-2024-05-13",
-         'api_key' : 'API_KEY'
+         'api_key' : 'OPENAI_API_KEY'
      }]
 
 llm_config={
