@@ -19,10 +19,6 @@ config_list = [
 
 # assess HIV funtion
 def assess_hiv_risk(message):
-    patient.initiate_chat(assistant, message=message)
-    # return the last message received by the assistant
-    last_message = planner_user.last_message()["content"]
-
     questions = {
         'sex_with_men': "Have you had unprotected sexual intercourse with men in the past 3 months? (Yes/No): ",
         'multiple_partners': "Have you had multiple sexual partners in the past 12 months? (Yes/No): ",
@@ -58,7 +54,7 @@ def assess_hiv_risk(message):
 llm_config_counselor = {
     "temperature": 0,
     "timeout": 300,
-    "cache_seed: 43,
+    "cache_seed": 43,
     "config_list": config_list,
     "functions": [
     {
@@ -116,7 +112,7 @@ def initialize_agents(llm_config):
         },
     )
 
-    return assistant, patient
+    return counselor, patient
 
 # the assistant receives a message from the user_proxy, which contains the task description
 counselor, patient = initialize_agents(config_list)
