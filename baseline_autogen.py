@@ -28,6 +28,7 @@ assistant = autogen.AssistantAgent(
         "config_list": config_list,  # a list of OpenAI API configurations
         "temperature": 0,  # temperature for sampling
     },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
+    system_message='You are an HIV/PrEP counselor.'
 )
 
 # create a UserProxyAgent instance named "user_proxy"
@@ -45,6 +46,6 @@ patient = autogen.UserProxyAgent(
 # the assistant receives a message from the user_proxy, which contains the task description
 chat_res = patient.initiate_chat(
     assistant,
-    message="""I would like to assess my HIV risk""",
+    message="I would like to assess my HIV risk",
     summary_method="reflection_with_llm",
 )
