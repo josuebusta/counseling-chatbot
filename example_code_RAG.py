@@ -25,7 +25,7 @@ TIMEOUT = 60
 
 # Get API KEY from .env file
 load_dotenv()
-api_key = os.getenv('API_KEY')
+api_key = os.getenv('OPENAI_API_KEY')
 
 
 

@@ -54,7 +54,7 @@ import time
 from bs4 import BeautifulSoup
 
 def search_provider(zip_code):
-    # Set the path to the WebDriver
+    # Set path to the WebDriver
     # Initialize Chrome options
     chrome_options = Options()
     # Use ChromeDriverManager to get the ChromeDriver path
