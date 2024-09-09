@@ -9,17 +9,14 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 import os 
 from openai import OpenAI
-
-
-
-
 from IPython.display import Image, display
-
 import autogen
 from autogen.coding import LocalCommandLineCodeExecutor
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
+
+# CONFIGURATION 
 
 # Get API KEY from .env file
 load_dotenv()
@@ -32,35 +29,18 @@ config_list = [
         }
         ]
 
-
-
-
 # Function description
 llm_config_counselor = {
     "temperature": 0,
     "timeout": 300,
     "cache_seed": 43,
     "config_list": config_list,
-    "functions": [
-    {
-        "name": "search_provider",
-        "description": "Use the ZIP code provided to find the nearest provider",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "description": "ZIP code of the patient to use to find the nearest PrEP provider",
-                },
-            },
-            "required": ["message"],
-        },
-    },
-    
-],
+
 }
 
-# Search provider assistant agent
+# AGENTS INITALIZATION
+
+# Search provider assistant agent to suggest the function to the providers assistant
 search_bot = autogen.AssistantAgent(
     name="search_bot",
     llm_config={
@@ -68,18 +48,44 @@ search_bot = autogen.AssistantAgent(
         "config_list": config_list,  # a list of OpenAI API configurations
         "temperature": 0,  # temperature for sampling
     },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
-    system_message="When asked for a counselor, only suggest the function you have been provided with and use the ZIP code provided as an argument.",
+    system_message="When asked for a counselor, only suggest the function you have been provided with and use the ZIP code provided as an argument. If not ZIP code has been provided, ask for the ZIP code.",
     is_termination_msg=lambda x: check_termination(x),
 )
 
 
-# Search provider user proxy agent
+# Main counselor - answers general questions 
+counselor = autogen.AssistantAgent(
+    name="assistant",
+    llm_config={
+        "cache_seed": 41,  # seed for caching and reproducibility
+        "config_list": config_list,  # a list of OpenAI API configurations
+        "temperature": 0,  # temperature for sampling
+    },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
+    system_message="You are an HIV PrEP counselor. Ask questions to the patients to assess their HIV risk.",
+)
+
+
+# Search provider user proxy agent (Debugging purposes)
 def check_termination(x):
     print(f"Message content: {x}")
     return x.get("content", "").rstrip().endswith("TERMINATE")
 
-user_proxy = autogen.UserProxyAgent(
-    name="user_proxy",
+
+
+# Patient (Chatbot-user)
+patient = autogen.UserProxyAgent(
+    name="patient",
+    human_input_mode="ALWAYS",
+    max_consecutive_auto_reply=10,
+    #is_termination_msg=lambda x: x.get("content", "").rstrip().endswith("TERMINATE"),
+    code_execution_config={
+        "executor": LocalCommandLineCodeExecutor(work_dir="coding"), 
+    },
+)
+
+# Executes the search_provider function
+providers = autogen.UserProxyAgent(
+    name="providers",
     human_input_mode="NEVER",
     max_consecutive_auto_reply=10,
   
@@ -87,9 +93,16 @@ user_proxy = autogen.UserProxyAgent(
     system_message="Use the results from the function call to provide a list of nearby counselors"
 )
 
+# INITIALIZE THE GROUP CHAT
+
+group_chat = autogen.GroupChat(agents=[counselor, patient, search_bot, providers], messages=[], max_round=12)
+manager = autogen.GroupChatManager(groupchat=group_chat, llm_config= llm_config_counselor) # look up the purpose of the manager
 
 
-@user_proxy.register_for_execution()
+
+# FUNCTION TO SEARCH FOR CLOSE PROVIDERS
+
+@providers.register_for_execution()
 @search_bot.register_for_llm(description="Nearest provider finder")
 def search_provider(zip_code: str):
     # Set the path to the WebDriver
@@ -151,58 +164,42 @@ def search_provider(zip_code: str):
     filtered_df = df[df['Distance'] <=30]
     return filtered_df.to_json(orient='records')
     # Print or process the extracted data
+
+
+# FUNCTION TO ASSESS PATIENT'S HIV RISK
+
+def assess_hiv_risk():
+    questions = {
+        'sex_with_men': "Have you had unprotected sexual intercourse with men in the past 3 months? (Yes/No): ",
+        'multiple_partners': "Have you had multiple sexual partners in the past 12 months? (Yes/No): ",
+        'iv_drug_use': "Have you used intravenous drugs or shared needles? (Yes/No): ",
+        'partner_hiv_positive/unknown': "Do you have a sexual partner who is HIV positive/ has unknown HIV status? (Yes/No): ",
+        'std_history': "Have you been diagnosed with a sexually transmitted disease (STD) in the past 12 months? (Yes/No): ",
+        # Add more questions as necessary
+    }
     
-
-# # Testing if search_provider works
-# search_provider("02906") 
-
-user_proxy.initiate_chat(
-    search_bot,
-    message="What are the nearest PrEP Providers to 02906 ZIP code"
-)
-
-
-
-
-# Agents for the conversation
-
-
-def initialize_agents(llm_config):
-
-    # create an AssistantAgent named "assistant"
-    counselor = autogen.AssistantAgent(
-        name="assistant",
-        llm_config={
-            "cache_seed": 41,  # seed for caching and reproducibility
-            "config_list": config_list,  # a list of OpenAI API configurations
-            "temperature": 0,  # temperature for sampling
-        },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
-        system_message="You are an HIV PrEP counselor. You will search the internet for the nearest PrEP provider",
-    )
-
-    # create a UserProxyAgent instance named "user_proxy"
-    patient = autogen.UserProxyAgent(
-        name="user_proxy",
-        human_input_mode="ALWAYS",
-        max_consecutive_auto_reply=10,
-        is_termination_msg=lambda x: x.get("content", "").rstrip().endswith("TERMINATE"),
-        code_execution_config={
-            # the executor to run the generated code
-            "executor": LocalCommandLineCodeExecutor(work_dir="coding"), # different from video
-        },
-        function_map={"search_provider":search_provider}
-    )
+    high_risk = False
+    responses = {}
+    
+    print("HIV Risk Assessment Questionnaire\n")
+    
+    for key, question in questions.items():
+        response = input(question).strip().lower()
+        responses[key] = response
+        if response == 'yes':
+            high_risk = True
+    
+    if high_risk:
+        print("\nBased on your responses, you may be at a higher risk for HIV. It is recommended to consider taking PrEP to protect from HIV infection.")
+    else:
+        print("\nBased on your responses, your risk for HIV appears to be lower. However, continue to practice safe behaviors and consult a healthcare professional for personalized advice.")
+    
+    return responses
 
 
+# INITATE THE CHAT
 
-    return counselor, patient
-
-# the assistant receives a message from the user_proxy, which contains the task description
-counselor, patient = initialize_agents(config_list)
-# initialzie the conversation
 patient.initiate_chat(
-    counselor,
-    message="Assess my HIV risk",
-    summary_method="reflection_with_llm",
-    system_message="You are an HIV PrEP counselor.",
+    manager,
+    message="Assess my HIV risk."
 )
