@@ -56,7 +56,9 @@ def initialize_agents(config_list, docs_path=None):
             "customized_prompt": PROMPT_CODE,
             "get_or_create": True,
             "collection_name": "autogen_rag",
+            
         },
+        code_execution_config={"work_dir":"coding", "use_docker":False}
     )
 
     return assistant, ragproxyagent

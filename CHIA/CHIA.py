@@ -159,7 +159,7 @@ llm_config_counselor = {
 "functions": [
     {
         "name": "assess_hiv_risk",
-        "description": "Ask patients a couple of questions to assess their HIV risk",
+        "description": "Ask patients a couple of questions to assess their HIV risk using the assess_hiv_risk function",
         "parameters": {
             "type": "object",
             "properties": {
