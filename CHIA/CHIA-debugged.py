@@ -40,7 +40,8 @@ llm_config_counselor = {
 
 # AGENTS INITALIZATION
 
-# Search provider assistant agent to suggest the function to the providers assistant
+
+# Search provider assistant agent to suggest the function to the search agent
 search_bot = autogen.AssistantAgent(
     name="search_bot",
     llm_config={
@@ -50,6 +51,16 @@ search_bot = autogen.AssistantAgent(
     },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
     system_message="When asked for a counselor, only suggest the function you have been provided with and use the ZIP code provided as an argument. If not ZIP code has been provided, ask for the ZIP code.",
     is_termination_msg=lambda x: check_termination(x),
+)
+
+# Executes the search_provider function
+search = autogen.UserProxyAgent(
+    name="search",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=10,
+  
+    code_execution_config={"work_dir":"coding", "use_docker":False},
+    system_message="Use the results from the function call to provide a list of nearby counselors"
 )
 
 
@@ -83,26 +94,41 @@ patient = autogen.UserProxyAgent(
     },
 )
 
-# Executes the search_provider function
-providers = autogen.UserProxyAgent(
-    name="providers",
+# HIV assessment questions assistant to suggest the function to the assessment agent
+assessment_bot = autogen.AssistantAgent(
+    name="assessment_bot",
+    llm_config={
+        "cache_seed": 41,  # seed for caching and reproducibility
+        "config_list": config_list,  # a list of OpenAI API configurations
+        "temperature": 0,  # temperature for sampling
+    },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
+    system_message="When a patient asks to assess HIV risk, only suggest the function you have been provided with.",
+    is_termination_msg=lambda x: check_termination(x),
+)
+
+# Executes the assess_risk function
+assessment = autogen.UserProxyAgent(
+    name="assessment",
     human_input_mode="NEVER",
     max_consecutive_auto_reply=10,
   
     code_execution_config={"work_dir":"coding", "use_docker":False},
-    system_message="Use the results from the function call to provide a list of nearby counselors"
+    system_message="Use the function call to ask the patient some questions about their HIV risk and assess their HIV risk based on the function"
 )
+
+
+
 
 # INITIALIZE THE GROUP CHAT
 
-group_chat = autogen.GroupChat(agents=[counselor, patient, search_bot, providers], messages=[], max_round=12)
+group_chat = autogen.GroupChat(agents=[counselor, patient, search_bot, search, patient, assessment, assessment_bot], messages=[], max_round=12)
 manager = autogen.GroupChatManager(groupchat=group_chat, llm_config= llm_config_counselor) # look up the purpose of the manager
 
 
 
 # FUNCTION TO SEARCH FOR CLOSE PROVIDERS
 
-@providers.register_for_execution()
+@search.register_for_execution()
 @search_bot.register_for_llm(description="Nearest provider finder")
 def search_provider(zip_code: str):
     # Set the path to the WebDriver
@@ -167,7 +193,8 @@ def search_provider(zip_code: str):
 
 
 # FUNCTION TO ASSESS PATIENT'S HIV RISK
-
+@assessment.register_for_execution()
+@assessment_bot.register_for_llm(description="Assesses HIV risk")
 def assess_hiv_risk():
     questions = {
         'sex_with_men': "Have you had unprotected sexual intercourse with men in the past 3 months? (Yes/No): ",
