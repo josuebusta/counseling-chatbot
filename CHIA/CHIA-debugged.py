@@ -72,7 +72,7 @@ counselor = autogen.AssistantAgent(
         "config_list": config_list,  # a list of OpenAI API configurations
         "temperature": 0,  # temperature for sampling
     },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
-    system_message="You are an HIV PrEP counselor. Ask questions to the patients to assess their HIV risk.",
+    system_message="You are an HIV PrEP counselor.",
 )
 
 
@@ -121,7 +121,7 @@ assessment = autogen.UserProxyAgent(
 
 # INITIALIZE THE GROUP CHAT
 
-group_chat = autogen.GroupChat(agents=[counselor, patient, search_bot, search, patient, assessment, assessment_bot], messages=[], max_round=12)
+group_chat = autogen.GroupChat(agents=[counselor, patient, search_bot, search, assessment, assessment_bot], messages=[], max_round=12)
 manager = autogen.GroupChatManager(groupchat=group_chat, llm_config= llm_config_counselor) # look up the purpose of the manager
 
 
