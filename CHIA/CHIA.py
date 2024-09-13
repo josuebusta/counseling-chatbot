@@ -204,6 +204,7 @@ def initialize_agents(llm_config):
                 },
                 "required": ["questions"],
             },
+            "max_tokens": 10000
         },
         {
             "name": "search_provider",

@@ -26,7 +26,7 @@ api_key = os.getenv('OPENAI_API_KEY')
 
 config_list = [
     {
-        "model": "gpt-4", # explore newest model - o1-mini
+        "model": "gpt-4o-mini", # explore newest model - o1-mini
         "api_key": os.getenv(api_key)
         }
         ]
@@ -270,10 +270,11 @@ group_chat = autogen.GroupChat(
     # ,speaker_selection_method="round_robin"
     )
 
-manager = autogen.GroupChatManager(groupchat=group_chat, llm_config= llm_config_counselor, )
+manager = autogen.GroupChatManager(groupchat=group_chat, llm_config= llm_config_counselor)
 
 
 patient.initiate_chat(
     manager,
     message="How does the intersection of cultural identity and sexual orientation affect attitudes towards PrEP?",
+    max_tokens=10000
 )
