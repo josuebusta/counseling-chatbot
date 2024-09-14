@@ -41,32 +41,31 @@ llm_config_counselor = {
 }
 
 
-
 # AGENTS INITALIZATION
 
 
-# # Search provider assistant agent to suggest the function to the search agent
-# search_bot = autogen.AssistantAgent(
-#     name="search_bot",
-#     llm_config={
-#         "cache_seed": 41,  # seed for caching and reproducibility
-#         "config_list": config_list,  # a list of OpenAI API configurations
-#         "temperature": 0,  # temperature for sampling
-#     },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
-#     system_message="When asked for a counselor, only suggest the function you have been provided with and use the ZIP code provided as an argument. If not ZIP code has been provided, ask for the ZIP code.",
-#     is_termination_msg=lambda x: check_termination(x),
-#     code_execution_config={"work_dir":"coding", "use_docker":False},
-# )
+# Search provider assistant agent to suggest the function to the search agent
+search_bot = autogen.AssistantAgent(
+    name="search_bot",
+    llm_config={
+        "cache_seed": 41,  # seed for caching and reproducibility
+        "config_list": config_list,  # a list of OpenAI API configurations
+        "temperature": 0,  # temperature for sampling
+    },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
+    system_message="When asked for a counselor, only suggest the function you have been provided with and use the ZIP code provided as an argument. If not ZIP code has been provided, ask for the ZIP code.",
+    is_termination_msg=lambda x: check_termination(x),
+    code_execution_config={"work_dir":"coding", "use_docker":False},
+)
 
-# # Executes the search_provider function
-# search = autogen.UserProxyAgent(
-#     name="search",
-#     human_input_mode="NEVER",
-#     max_consecutive_auto_reply=10,
+# Executes the search_provider function
+search = autogen.UserProxyAgent(
+    name="search",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=10,
   
-#     code_execution_config={"work_dir":"coding", "use_docker":False},
-#     system_message="Use the results from the function call to provide a list of nearby counselors"
-# )
+    code_execution_config={"work_dir":"coding", "use_docker":False},
+    system_message="Use the results from the function call to provide a list of nearby counselors"
+)
 
 
 
@@ -114,17 +113,17 @@ patient = autogen.UserProxyAgent(
 )
 
 
-# # HIV assessment questions assistant to suggest the function to the assessment agent
-# assessment_bot = autogen.AssistantAgent(
-#     name="assessment_bot",
-#     llm_config={
-#         "cache_seed": 41,  # seed for caching and reproducibility
-#         "config_list": config_list,  # a list of OpenAI API configurations
-#         "temperature": 0,  # temperature for sampling
-#     },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
-#     system_message="When a patient asks to assess HIV risk, only suggest the function you have been provided with.",
-#     is_termination_msg=lambda x: check_termination(x),
-# )
+# HIV assessment questions assistant to suggest the function to the assessment agent
+assessment_bot = autogen.AssistantAgent(
+    name="assessment_bot",
+    llm_config={
+        "cache_seed": 41,  # seed for caching and reproducibility
+        "config_list": config_list,  # a list of OpenAI API configurations
+        "temperature": 0,  # temperature for sampling
+    },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
+    system_message="When a patient asks to assess HIV risk, only suggest the function you have been provided with.",
+    is_termination_msg=lambda x: check_termination(x),
+)
 counselor_bot = autogen.AssistantAgent(
     name="counselor_bot",
     llm_config={
@@ -135,17 +134,18 @@ counselor_bot = autogen.AssistantAgent(
     # Make system message very clear
     system_message="When a patient about counseling for HIV/PrEP and the questions, provide the counselor with the content retrieved from the counselor_aid agent. DO NOT print t",
     is_termination_msg=lambda x: check_termination(x),
+    silent=True
 )
 
 
-# # Executes the assess_risk function
-# assessment = autogen.UserProxyAgent(
-#     name="assessment",
-#     human_input_mode="NEVER",
-#     max_consecutive_auto_reply=10,
-#     code_execution_config={"work_dir":"coding", "use_docker":False},
-#     system_message="Use the function call to ask the patient some questions about their HIV risk and assess their HIV risk based on the function",
-# )
+# Executes the assess_risk function
+assessment = autogen.UserProxyAgent(
+    name="assessment",
+    human_input_mode="NEVER",
+    max_consecutive_auto_reply=10,
+    code_execution_config={"work_dir":"coding", "use_docker":False},
+    system_message="Use the function call to ask the patient some questions about their HIV risk and assess their HIV risk based on the function",
+)
 
 
 def retrieve_content(message: str, n_results: int = 1) -> str:
@@ -163,8 +163,8 @@ for executor in [counselor]:
     executor.register_for_execution()(d_retrieve_content)
 
 
-# @search.register_for_execution()
-# @search_bot.register_for_llm(description="Nearest provider finder")
+@search.register_for_execution()
+@search_bot.register_for_llm(description="Nearest provider finder")
 def search_provider(zip_code: str):
     # Set the path to the WebDriver
     # Initialize Chrome options
@@ -228,8 +228,8 @@ def search_provider(zip_code: str):
 
 
 # FUNCTION TO ASSESS PATIENT'S HIV RISK
-# @assessment.register_for_execution()
-# @assessment_bot.register_for_llm(description="Assesses HIV risk")
+@assessment.register_for_execution()
+@assessment_bot.register_for_llm(description="Assesses HIV risk")
 def assess_hiv_risk():
     questions = {
         'sex_with_men': "Have you had unprotected sexual intercourse with men in the past 3 months? (Yes/No): ",
@@ -263,8 +263,7 @@ def assess_hiv_risk():
 # INITIALIZE THE GROUP CHAT
 
 group_chat = autogen.GroupChat(
-    agents=[counselor, counselor_bot, patient],
-            # , search_bot, search, assessment, assessment_bot], 
+    agents=[counselor, counselor_bot, patient, search_bot, search, assessment, assessment_bot], 
     messages=[], 
     max_round=12
     # ,speaker_selection_method="round_robin"
@@ -276,5 +275,5 @@ manager = autogen.GroupChatManager(groupchat=group_chat, llm_config= llm_config_
 patient.initiate_chat(
     manager,
     message="How does the intersection of cultural identity and sexual orientation affect attitudes towards PrEP?",
-    max_tokens=10000
+    max_tokens=10000 # might have to increase when chats get lengthier
 )
