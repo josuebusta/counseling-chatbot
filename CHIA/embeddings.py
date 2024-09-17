@@ -207,11 +207,18 @@ def call_rag_chat():
         return filtered_df.to_json(orient='records')
         # Print or process the extracted data
    
-    s_retrieve_content = search_bot.register_for_llm(
-        name="search_provider", description="Finds nearest provider finder", api_style="function"
-    )(search_provider)
+    # s_retrieve_content = search_bot.register_for_llm(
+    #     name="search_provider", description="Finds nearest provider finder", api_style="function"
+    # )(search_provider)
 
-    search.register_for_execution()(s_retrieve_content)
+    # search.register_for_execution()(s_retrieve_content)
+    register_function(
+        search_provider,
+        caller=search_bot,  # The assistant agent can suggest calls to the calculator.
+        executor=search,  # The user proxy agent can execute the calculator calls.
+        name="search_provider",  # By default, the function name is used as the tool name.
+        description="Searches for nearest providers",  # A description of the tool.
+    )
 
 
         # FUNCTION TO ASSESS PATIENT'S HIV RISK
@@ -244,11 +251,19 @@ def call_rag_chat():
             print("\nBased on your responses, your risk for HIV appears to be lower. However, continue to practice safe behaviors and consult a healthcare professional for personalized advice.")
         
         return responses
-    a_retrieve_content = assessment_bot.register_for_llm(
-    name="assess_hiv_risk", description="Assesses HIV risk", api_style="function"
-    )(assess_hiv_risk)
+    # a_retrieve_content = assessment_bot.register_for_llm(
+    # name="assess_hiv_risk", description="Assesses HIV risk", api_style="function"
+    # )(assess_hiv_risk)
 
-    assessment.register_for_execution()(a_retrieve_content)
+    # assessment.register_for_execution()(a_retrieve_content)
+
+    register_function(
+        assess_hiv_risk,
+        caller=assessment_bot,  # The assistant agent can suggest calls to the calculator.
+        executor=assessment,  # The user proxy agent can execute the calculator calls.
+        name="assess_hiv_risk",  # By default, the function name is used as the tool name.
+        description="Assess hiv risk",  # A description of the tool.
+    )
 
 
     # In this case, we will have multiple user proxy agents and we don't initiate the chat
@@ -273,16 +288,13 @@ def call_rag_chat():
         description="retrives context of the message",  # A description of the tool.
     )
  
-    # r_retrieve_content = assistant.register_for_llm(
-    #     name="retrieve_content", description="retrieve content for hiv/prep counseling", api_style="function"
-    # )(retrieve_content)
 
     # assistant.register_for_execution()(r_retrieve_content)
 
     groupchat = autogen.GroupChat(
-        agents=[assistant, assistant_bot, patient],
+        agents=[assistant, assistant_bot, patient, search, search_bot, assessment, assessment_bot],
         messages=[],
-        max_round=12,
+        max_round=150,
         allow_repeat_speaker=False,
     )
 
