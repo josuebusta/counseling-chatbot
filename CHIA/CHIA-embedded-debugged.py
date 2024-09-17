@@ -21,6 +21,7 @@ from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProx
 # CONFIGURATION 
 
 # Get API KEY from .env file
+clean_up_tokenization_spaces = False
 load_dotenv()
 api_key = os.getenv('OPENAI_API_KEY')
 
@@ -51,7 +52,7 @@ search_bot = autogen.AssistantAgent(
         "config_list": config_list,  # a list of OpenAI API configurations
         "temperature": 0,  # temperature for sampling
     },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
-    system_message="When asked for a counselor, only suggest the function you have been provided with and use the ZIP code provided as an argument. If not ZIP code has been provided, ask for the ZIP code. ",
+    system_message="When asked for a counselor, only suggest the function you have been provided with and use the ZIP code provided as an argument. If not ZIP code has been provided, ask for the ZIP code.",
     is_termination_msg=lambda x: check_termination(x),
 )
 
@@ -74,10 +75,10 @@ counselor = autogen.AssistantAgent(
         "config_list": config_list,  # a list of OpenAI API configurations
         "temperature": 0,  # temperature for sampling
     },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
-    system_message="You are an HIV PrEP counselor. Only provide the answer to the question",
+    system_message="Provide the retrieve_content function with the user message as parameter.",
 )
 
-counselor_bot = autogen.AssistantAgent(
+counselor_bot = autogen.UserProxyAgent(
     name="counselor_bot",
     llm_config={
         "cache_seed": 41,  # seed for caching and reproducibility
@@ -85,9 +86,9 @@ counselor_bot = autogen.AssistantAgent(
         "temperature": 0,  # temperature for sampling
     },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
     # Make system message very clear
-    system_message="When a patient about counseling for HIV/PrEP and the questions, provide the counselor with the content retrieved from the counselor_aid agent . DO NOT search the internet for the answer. DO NOT respond in JSON format.",
+    system_message="Search the context given to find an answer to the message",
     is_termination_msg=lambda x: check_termination(x),
-    silent=True
+    code_execution_config={"work_dir":"coding", "use_docker":False},
 )
 
 # counselor_aid - gives the counselor some context
@@ -106,10 +107,7 @@ counselor_aid = RetrieveUserProxyAgent(
 )
 
 
-# Search provider user proxy agent (Debugging purposes)
-def check_termination(x):
-    print(f"Message content: {x}")
-    return x.get("content", "").rstrip().endswith("TERMINATE")
+xt("content", "").rstrip().endswith("TERMINATE")
 
 
 
@@ -151,11 +149,20 @@ assessment = autogen.UserProxyAgent(
 
 
 
+
 # INITIALIZE THE GROUP CHAT
 
 group_chat = autogen.GroupChat(agents=[counselor, patient, search_bot, search, assessment, assessment_bot], messages=[], max_round=12)
 manager = autogen.GroupChatManager(groupchat=group_chat, llm_config= llm_config_counselor) # look up the purpose of the manager
 
+
+
+# FUNCTION TO RETRIEVE DATA
+def retrieve_content(message: str, n_results: int = 1) -> str:
+    counselor_aid.n_results = n_results  # Set the number of results to be retrieved.
+    _context = {"problem": message, "n_results": n_results}
+    ret_msg = counselor_aid.message_generator(counselor_aid, None, _context)
+    return ret_msg or message
 
 
 # FUNCTION TO SEARCH FOR CLOSE PROVIDERS

@@ -26,7 +26,7 @@ api_key = os.getenv('OPENAI_API_KEY')
 
 config_list = [
     {
-        "model": "gpt-4o-mini", # explore newest model - o1-mini
+        "model": "gpt-4", # explore newest model - o1-mini
         "api_key": os.getenv(api_key)
         }
         ]
@@ -72,7 +72,7 @@ search = autogen.UserProxyAgent(
 # Main counselor - answers general questions 
 counselor = autogen.UserProxyAgent(
     name="counselor",
-    system_message="You are an HIV PrEP counselor. Use the context you received to give a concise answer to the question asked by the patient. DO NOT print the context or the message you received in your answer. Just respond to the question.",
+    system_message="You are an HIV PrEP counselor. Use the context you received to give answer to the question asked by the patient. DO NOT print the context or the message you received in your answer. Just respond to the question.",
     is_termination_msg=lambda x: check_termination(x),
     human_input_mode="NEVER",
     code_execution_config={"work_dir":"coding", "use_docker":False},
@@ -132,7 +132,7 @@ counselor_bot = autogen.AssistantAgent(
         "temperature": 0,  # temperature for sampling
     },  # configuration for autogen's enhanced inference API which is compatible with OpenAI API
     # Make system message very clear
-    system_message="When a patient about counseling for HIV/PrEP and the questions, provide the counselor with the content retrieved from the counselor_aid agent. DO NOT print t",
+    system_message="When a patient about counseling for HIV/PrEP and the questions, provide the counselor with the content retrieved from the counselor_aid agent. DO NOT search the internet for the answer. DO NOT respond in JSON format.",
     is_termination_msg=lambda x: check_termination(x),
     silent=True
 )
@@ -152,19 +152,20 @@ def retrieve_content(message: str, n_results: int = 1) -> str:
     counselor_aid.n_results = n_results  # Set the number of results to be retrieved.
     _context = {"problem": message, "n_results": n_results}
     ret_msg = counselor_aid.message_generator(counselor_aid, None, _context)
+    print(ret_msg)
     return ret_msg or message
 
-for caller in [counselor_bot ]:
-    d_retrieve_content = caller.register_for_llm(
-        description="retrieve content for counselling HIV/PrEP", api_style="function"
-    )(retrieve_content)
+retrieve_content("")
+ 
+d_retrieve_content = counselor_bot.register_for_llm(
+    description="retrieves content for counselling HIV/PrEP", api_style="function"
+)(retrieve_content)
 
-for executor in [counselor]:
-    executor.register_for_execution()(d_retrieve_content)
+counselor.register_for_execution()(d_retrieve_content)
 
 
-@search.register_for_execution()
-@search_bot.register_for_llm(description="Nearest provider finder")
+
+
 def search_provider(zip_code: str):
     # Set the path to the WebDriver
     # Initialize Chrome options
@@ -226,10 +227,16 @@ def search_provider(zip_code: str):
     return filtered_df.to_json(orient='records')
     # Print or process the extracted data
 
+s_retrieve_content = search_bot.register_for_llm(
+    description="Nearest provider finder", api_style="function"
+)(retrieve_content)
+
+search.register_for_execution()(s_retrieve_content)
+
+
+
 
 # FUNCTION TO ASSESS PATIENT'S HIV RISK
-@assessment.register_for_execution()
-@assessment_bot.register_for_llm(description="Assesses HIV risk")
 def assess_hiv_risk():
     questions = {
         'sex_with_men': "Have you had unprotected sexual intercourse with men in the past 3 months? (Yes/No): ",
@@ -258,7 +265,11 @@ def assess_hiv_risk():
     
     return responses
 
+a_retrieve_content = assessment_bot.register_for_llm(
+    description="Assesses HIV risk", api_style="function"
+)(retrieve_content)
 
+assessment.register_for_execution()(s_retrieve_content)
 
 # INITIALIZE THE GROUP CHAT
 
@@ -274,6 +285,6 @@ manager = autogen.GroupChatManager(groupchat=group_chat, llm_config= llm_config_
 
 patient.initiate_chat(
     manager,
-    message="How does the intersection of cultural identity and sexual orientation affect attitudes towards PrEP?",
+    message="Hi, I would ",
     max_tokens=10000 # might have to increase when chats get lengthier
 )
