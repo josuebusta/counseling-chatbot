@@ -93,8 +93,19 @@ counselor_aid = RetrieveUserProxyAgent(
     code_execution_config={"work_dir":"coding", "use_docker":False},
 )
 
+# FUNCTION TO CHECK TERMINATION
 # Search provider user proxy agent (Debugging purposes)
 def check_termination(x):
+    """
+    Checks if the message content ends with "TERMINATE" to determine if the conversation should end.
+
+    Parameters:
+    x (dict): A dictionary containing the message content
+
+    Returns:
+    bool: True if the message ends with "TERMINATE", False otherwise
+    """
+
     print(f"Message content: {x}")
     return x.get("content", "").rstrip().endswith("TERMINATE")
 
@@ -147,8 +158,19 @@ assessment = autogen.UserProxyAgent(
     system_message="Use the function call to ask the patient some questions about their HIV risk and assess their HIV risk based on the function",
 )
 
-
+# FUNCTION TO RETRIEVE CONTENT FROM COUNSELOR AID
 def retrieve_content(message: str, n_results: int = 1) -> str:
+    """
+    Retrieves content for counselling HIV/PrEP using the counselor_aid agent.
+
+    Parameters:
+    message (str): The query or problem statement
+    n_results (int): The number of results to retrieve (default: 1)
+
+    Returns:
+    str: The retrieved content or the original message if no content is found
+    """
+
     counselor_aid.n_results = n_results  # Set the number of results to be retrieved.
     _context = {"problem": message, "n_results": n_results}
     ret_msg = counselor_aid.message_generator(counselor_aid, None, _context)
@@ -165,9 +187,17 @@ counselor.register_for_execution()(d_retrieve_content)
 
 
 
-
+# FUNCTION TO SEARCH FOR NEAREST PROVIDER
 def search_provider(zip_code: str):
-    # Set the path to the WebDriver
+    """
+    Searches for PrEP providers within 30 miles of the given ZIP code.
+    
+    Args:
+    zip_code (str): The ZIP code to search for providers.
+    
+    Returns:
+    pandas.DataFrame: A DataFrame containing provider information within 30 miles.
+    """
     # Initialize Chrome options
     chrome_options = Options()
     # Use ChromeDriverManager to get the ChromeDriver path
@@ -193,15 +223,15 @@ def search_provider(zip_code: str):
 
     # Wait for results to load (adjust the sleep time as needed)
     time.sleep(5)
-    # Now scrape the locator-results-item elements
+
+    # Parse the page content
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
     results = soup.find_all('div', class_='locator-results-item')
     
+    # Extract the relevant information from each result item
     extracted_data = []
-    
     for result in results:
-        # Extract the relevant information from each result item
         name = result.find('h3').text.strip() if result.find('h3') else 'N/A'
         details = result.find_all('span')
         address = details[0].text.strip() if len(details) > 0 else 'N/A'
@@ -217,7 +247,7 @@ def search_provider(zip_code: str):
     
     driver.quit()
     
-        
+    # Create DataFrame and process distance data     
     df = pd.DataFrame(extracted_data)
     df['Distance'] = df['Distance'].str.replace(r'[^\d.]+', '', regex=True)
     df['Distance'] = pd.to_numeric(df['Distance'], errors='coerce')
@@ -238,6 +268,12 @@ search.register_for_execution()(s_retrieve_content)
 
 # FUNCTION TO ASSESS PATIENT'S HIV RISK
 def assess_hiv_risk():
+    """
+    Conducts an HIV risk assessment questionnaire.
+    
+    Returns:
+    dict: A dictionary containing the user's responses to the questionnaire.
+    """
     questions = {
         'sex_with_men': "Have you had unprotected sexual intercourse with men in the past 3 months? (Yes/No): ",
         'multiple_partners': "Have you had multiple sexual partners in the past 12 months? (Yes/No): ",

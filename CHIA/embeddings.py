@@ -221,7 +221,7 @@ def call_rag_chat():
     )
 
 
-        # FUNCTION TO ASSESS PATIENT'S HIV RISK
+    # FUNCTION TO ASSESS PATIENT'S HIV RISK
     # @assessment.register_for_execution()
     # @assessment_bot.register_for_llm(description="Assesses HIV risk")
     def assess_hiv_risk():
