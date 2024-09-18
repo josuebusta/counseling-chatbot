@@ -159,6 +159,16 @@ manager = autogen.GroupChatManager(groupchat=group_chat, llm_config= llm_config_
 
 # FUNCTION TO RETRIEVE DATA
 def retrieve_content(message: str, n_results: int = 1) -> str:
+    """
+    Retrieve content based on the given message.
+    
+    Args:
+    message (str): The message to retrieve content for.
+    n_results (int): The number of results to retrieve. Default is 1.
+    
+    Returns:
+    str: The retrieved content or the original message if no content is retrieved.
+    """
     counselor_aid.n_results = n_results  # Set the number of results to be retrieved.
     _context = {"problem": message, "n_results": n_results}
     ret_msg = counselor_aid.message_generator(counselor_aid, None, _context)
@@ -170,6 +180,15 @@ def retrieve_content(message: str, n_results: int = 1) -> str:
 @search.register_for_execution()
 @search_bot.register_for_llm(description="Nearest provider finder")
 def search_provider(zip_code: str) -> str:
+    """
+    Search for PrEP providers near the given ZIP code.
+    
+    Args:
+    zip_code (str): The ZIP code to search for providers.
+    
+    Returns:
+    str: JSON string containing information about nearby providers.
+    """
     # Set the path to the WebDriver
     # Initialize Chrome options
     chrome_options = Options()
@@ -235,6 +254,12 @@ def search_provider(zip_code: str) -> str:
 @assessment.register_for_execution()
 @assessment_bot.register_for_llm(description="Assesses HIV risk")
 def assess_hiv_risk():
+    """
+    Assess the HIV risk of a patient by asking a series of questions.
+    
+    Returns:
+    dict: A dictionary containing the patient's responses to the risk assessment questions.
+    """
     questions = {
         'sex_with_men': "Have you had unprotected sexual intercourse with men in the past 3 months? (Yes/No): ",
         'multiple_partners': "Have you had multiple sexual partners in the past 12 months? (Yes/No): ",

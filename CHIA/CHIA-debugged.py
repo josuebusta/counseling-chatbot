@@ -159,10 +159,18 @@ manager = autogen.GroupChatManager(groupchat=group_chat, llm_config= llm_config_
 
 
 # FUNCTION TO SEARCH FOR CLOSE PROVIDERS
-
 @search.register_for_execution()
 @search_bot.register_for_llm(description="Nearest provider finder")
 def search_provider(zip_code: str) -> str:
+    """
+    Search for PrEP providers near the given ZIP code.
+    
+    Args:
+    zip_code (str): The ZIP code to search for providers.
+    
+    Returns:
+    str: JSON string containing information about nearby providers.
+    """
     # Set the path to the WebDriver
     # Initialize Chrome options
     chrome_options = Options()
