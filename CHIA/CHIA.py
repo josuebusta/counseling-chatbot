@@ -22,8 +22,18 @@ from openai import OpenAI
 
 
 
+# FUNCTION TO SEARCH FOR NEAREST PROVIDER
 def search_provider(zip_code):
-    # Set the path to the WebDriver
+    """
+    Searches for PrEP providers within 30 miles of the given ZIP code.
+    
+    Args:
+    zip_code (str): The ZIP code to search for providers.
+    
+    Returns:
+    pandas.DataFrame: A DataFrame containing provider information within 30 miles.
+    """
+
     # Initialize Chrome options
     chrome_options = Options()
     # Use ChromeDriverManager to get the ChromeDriver path
@@ -51,14 +61,14 @@ def search_provider(zip_code):
     # Wait for results to load (adjust the sleep time as needed)
     time.sleep(180)
 
-    # Now scrape the locator-results-item elements
+    # Parse the page content
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
     results = soup.find_all('div', class_='locator-results-item')
     
+    # Extract the relevant information from each result item
     extracted_data = []
     for result in results:
-        # Extract the relevant information from each result item
         name = result.find('h3').text.strip() if result.find('h3') else 'N/A'
         details = result.find_all('span')
         address = details[0].text.strip() if len(details) > 0 else 'N/A'
@@ -72,7 +82,8 @@ def search_provider(zip_code):
             'Distance': distance
         })
     driver.quit()
-        
+
+    # Create DataFrame and process distance data    
     df = pd.DataFrame(extracted_data)
     df['Distance'] = df['Distance'].str.replace(r'[^\d.]+', '', regex=True)
     df['Distance'] = pd.to_numeric(df['Distance'], errors='coerce')
@@ -84,7 +95,15 @@ def search_provider(zip_code):
 # Testing if search_provider works
 search_provider("02806") 
 
+# FUNCTION TO ASSESS PATIENT'S HIV RISK
 def assess_hiv_risk():
+    """
+    Conducts an HIV risk assessment questionnaire.
+    
+    Returns:
+    dict: A dictionary containing the user's responses to the questionnaire.
+    """
+
     questions = {
         'sex_with_men': "Have you had unprotected sexual intercourse with men in the past 3 months? (Yes/No): ",
         'multiple_partners': "Have you had multiple sexual partners in the past 12 months? (Yes/No): ",
@@ -135,7 +154,7 @@ api_key = os.getenv('OPENAI_API_KEY')
 client = OpenAI(api_key=api_key)
 
 
-
+# Configure LLM settings
 config_list = [
     {
         'model': 'gpt-4-0125-preview',
@@ -155,6 +174,7 @@ llm_config = {
 
 #TIMEOUT = 60
 
+# Configure counselor LLM settings
 llm_config_counselor = {
 "functions": [
     {
@@ -188,7 +208,17 @@ llm_config_counselor = {
 ],
 "config_list": llm_config}
 
+# FUNCTION TO INITIALIZE AGENTS
 def initialize_agents(llm_config):
+    """
+    Initialize the patient and counselor agents for the chat interaction.
+    
+    Args:
+    llm_config (dict): Configuration for the language model.
+    
+    Returns:
+    tuple: A tuple containing the patient and counselor agents.
+    """
     llm_config_counselor = {
     "functions": [
         {
@@ -244,6 +274,7 @@ def initialize_agents(llm_config):
 
     return patients, counselor
 
+# Initialize agents and start the chat
 patients,counselor=initialize_agents(llm_config)
 problem="I would like to assess my HIV risk"
 patients.initiate_chat(counselor, message=problem, silent=False,)
@@ -252,6 +283,7 @@ patients.initiate_chat(counselor, message=problem, silent=False,)
 
 
 
+# Get Description Text
 # def get_description_text():
 #     return """
 #     # Chatbot for HIV Prevention and Action (CHIA)
@@ -261,6 +293,7 @@ patients.initiate_chat(counselor, message=problem, silent=False,)
 #     """
 
 
+# Initiate Chat with Agent
 # def initiate_chat_with_agent(problem, queue, n_results=3):
 #     try:
 #         counselor.initiate_chat(
