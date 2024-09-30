@@ -45,7 +45,7 @@ llm_config_counselor = {
 patient = autogen.UserProxyAgent(
     name="patient",
     human_input_mode="ALWAYS",
-    max_consecutive_auto_reply=10,
+    max_consecutive_auto_reply=100,
     code_execution_config={"work_dir": "coding", "use_docker": False},
     llm_config=config_list
 )
