@@ -15,9 +15,10 @@ from autogen.coding import LocalCommandLineCodeExecutor
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
+from typing import Dict
 from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
 
-def assess_hiv_risk():
+def assess_hiv_risk() -> Dict:
     questions = {
         'sex_with_men': "Have you had unprotected sexual intercourse with men in the past 3 months? (Yes/No): ",
         'multiple_partners': "Have you had multiple sexual partners in the past 12 months? (Yes/No): ",
@@ -47,7 +48,7 @@ def assess_hiv_risk():
 
 
 # FUNCTION TO SEARCH FOR NEAREST PROVIDER
-def search_provider(zip_code: str):
+def search_provider(zip_code: str) -> Dict:
     """
     Searches for PrEP providers within 30 miles of the given ZIP code.
     
