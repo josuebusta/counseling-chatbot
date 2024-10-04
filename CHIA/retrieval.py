@@ -42,7 +42,7 @@ print(f"Number of splits: {len(all_splits)}")
 vectorstore = Chroma.from_documents(documents=all_splits, embedding=OpenAIEmbeddings(openai_api_key=api_key))
 
 # Initialize the LLM with the correct model
-llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
+llm = ChatOpenAI(model_name="gpt-40-mini", temperature=0)
 
 # Initialize RetrievalQA
 retriever = vectorstore.as_retriever()
