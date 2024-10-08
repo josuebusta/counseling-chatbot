@@ -1,7 +1,5 @@
-// frontend/src/App.js
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Row, Col, Form, Button, Card, InputGroup, FormControl, Spinner, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Form, Button, Card, InputGroup, FormControl, Alert } from 'react-bootstrap';
 import './App.css';
 
 function App() {
@@ -11,54 +9,44 @@ function App() {
   const [input, setInput] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState(null);
-  const userId = 'user1'; // Replace with dynamic IDs as needed
   const messagesEndRef = useRef(null);
   const ws = useRef(null); // WebSocket reference
 
   useEffect(() => {
-    // Determine WebSocket protocol based on current page protocol
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsUrl = `${protocol}://${window.location.hostname}:8000/ws?user_id=${encodeURIComponent(userId)}`;
-
     // Initialize WebSocket connection
-    ws.current = new WebSocket(wsUrl);
+    ws.current = new WebSocket('ws://localhost:8000/ws');
 
+    // On WebSocket open, set the connection state to true
     ws.current.onopen = () => {
-      console.log('WebSocket connected');
       setIsConnected(true);
-      // Optionally, you can send an initial message or authentication token here
+      setError(null);
     };
 
+    // On receiving a message, append it to the messages list
     ws.current.onmessage = (event) => {
-      console.log('Message from server:', event.data);
       const newMessage = { sender: 'Counselor', text: event.data };
       setMessages(prev => [...prev, newMessage]);
       scrollToBottom();
     };
 
-    ws.current.onclose = (event) => {
-      console.log('WebSocket disconnected:', event);
+    // On WebSocket close or error, update the connection state and display an error
+    ws.current.onclose = () => {
       setIsConnected(false);
-      if (!event.wasClean) {
-        setError('WebSocket connection closed unexpectedly.');
-      }
+      setError('WebSocket connection closed. Reconnecting...');
     };
 
-    ws.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setError('WebSocket encountered an error.');
+    ws.current.onerror = (err) => {
+      setError(`WebSocket error: ${err.message}`);
     };
 
-    // Cleanup on component unmount
+    // Cleanup the WebSocket connection when the component unmounts
     return () => {
-      if (ws.current) {
-        ws.current.close();
-      }
+      ws.current.close();
     };
-  }, [userId]);
+  }, []);
 
   const sendMessage = () => {
-    if (input.trim() === '') return;
+    if (input.trim() === '') return; // Prevent sending empty messages
 
     // Append user's message to the chat
     const userMessage = { sender: 'You', text: input };
@@ -72,8 +60,13 @@ function App() {
       setError('WebSocket is not connected. Please try reconnecting.');
     }
 
-    setInput('');
+    setInput(''); // Clear input field
     scrollToBottom();
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    sendMessage();
   };
 
   const handleKeyPress = (e) => {
@@ -116,7 +109,7 @@ function App() {
               )}
             </Card.Body>
             <Card.Footer>
-              <Form>
+              <Form onSubmit={handleSubmit}>
                 <InputGroup>
                   <FormControl
                     placeholder="Type your message..."
@@ -126,7 +119,7 @@ function App() {
                     onKeyPress={handleKeyPress}
                     disabled={!isConnected}
                   />
-                  <Button variant="primary" onClick={sendMessage} disabled={!isConnected}>
+                  <Button variant="primary" type="submit" disabled={!isConnected}>
                     Send
                   </Button>
                 </InputGroup>

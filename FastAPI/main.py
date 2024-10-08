@@ -2,10 +2,10 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import List
 import asyncio
-from CHIA.CHIA_LangchainEmbeddings import WorkflowManager
+from CHIA.CHIA_LangchainEmbeddings import HIVPrEPCounselor
 
 app = FastAPI()
-workflow_manager = WorkflowManager()
+workflow_manager = HIVPrEPCounselor()
 
 class Message(BaseModel):
     user_id: str
@@ -18,16 +18,15 @@ async def send_message(message: Message):
 
 @app.get("/history/{user_id}")
 def get_history(user_id: str):
-    # Optionally, filter history by user_id if needed
     return {"history": workflow_manager.get_history()}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
-    counselor = WorkflowManager()
+    counselor = HIVPrEPCounselor()
     
-    # Send the initial greeting to the frontend
+    # Send initial greeting to the frontend
     initial_message = "How can I help you?"
     await websocket.send_text(initial_message)
 
@@ -39,6 +38,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
             # Process the message using the chatbot logic
             response = await counselor.get_response(data)
+            print('response is', response)
 
             # Send the counselor's response back to the front end
             await websocket.send_text(response)
@@ -46,4 +46,3 @@ async def websocket_endpoint(websocket: WebSocket):
         except Exception as e:
             print(f"Connection closed: {e}")
             break
-
