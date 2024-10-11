@@ -85,7 +85,7 @@ class HIVPrEPCounselor:
         # Check the contents of all_splits
         # for i, split in enumerate(all_splits):
         #     print(f"Split Document {i}: {split}")
-
+    #
         # Store splits in the vector store
         vectorstore = Chroma.from_documents(documents=all_splits, embedding=OpenAIEmbeddings(openai_api_key=self.api_key))
 
