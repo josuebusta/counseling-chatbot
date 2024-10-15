@@ -56,7 +56,7 @@ class HIVPrEPCounselor:
     def check_termination(self, x):
         """
         Checks if the message content ends with "TERMINATE" to determine if the conversation should end.
-
+fdocke
         Parameters:
         x (dict): A dictionary containing the message content
 
