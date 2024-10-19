@@ -1,8 +1,8 @@
+# FastAPI part
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import List
-import asyncio
-from CHIA.CHIA_LangchainEmbeddings import HIVPrEPCounselor
+from CHIA.CHIA_LangchainEmbeddings import HIVPrEPCounselor, TrackableGroupChatManager
 
 app = FastAPI()
 workflow_manager = HIVPrEPCounselor()
@@ -20,15 +20,17 @@ async def send_message(message: Message):
 def get_history(user_id: str):
     return {"history": workflow_manager.get_history()}
 
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
 
-    counselor = HIVPrEPCounselor()
-    
-    # Send initial greeting to the frontend
-    initial_message = "How can I help you?"
-    await websocket.send_text(initial_message)
+    # Set the WebSocket for the counselor
+    workflow_manager.manager.websocket = websocket  # Pass the websocket to the manager
+
+    # # Send initial greeting to the frontend
+    # initial_message = "How can I help you?"
+    # await websocket.send_text(initial_message)
 
     while True:
         try:
@@ -36,13 +38,27 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
             print(f"Received message: {data}")
 
-            # Process the message using the chatbot logic
-            response = await counselor.get_response(data)
-            print('response is', response)
+            # Process the user input with the manager
+            await workflow_manager.initiate_chat(data)
 
-            # Send the counselor's response back to the front end
-            await websocket.send_text(response)
+            # Optionally retrieve the latest chat response from the workflow manager
+            response = workflow_manager.get_latest_response()  # Ensure this method exists in your manager
 
-        except Exception as e:
-            print(f"Connection closed: {e}")
+            # Send the latest response to the frontend
+            if response:
+                await websocket.send_text(response)
+
+            # Retrieve the entire chat history (including counselor's responses)
+            chat_history = workflow_manager.get_history()
+            
+            # Send the chat history to the frontend (if needed)
+            for message in chat_history:
+                formatted_message = f"{message['sender']} to {message['receiver']}: {message['message']}"
+                await websocket.send_text(formatted_message)
+
+        except WebSocketDisconnect:
+            print("Client disconnected")
             break
+        except Exception as e:
+            print(f"Connection error: {e}")
+           
