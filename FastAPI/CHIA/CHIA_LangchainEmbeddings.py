@@ -21,17 +21,24 @@ import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 class TrackableGroupChatManager(autogen.GroupChatManager):
-    # def __init__(self, groupchat, llm_config, websocket, system_message):
-    #     super().__init__(groupchat, llm_config)
-    #     self.websocket = websocket  # Store the WebSocket connection
     
-    # OVERRIDING process_received_message from the autogen.groupchatmanager class
+        # OVERRIDING process_received_message from the autogen.groupchatmanager class
     def _process_received_message(self, message, sender, silent):
         # Send message to the WebSocket instead of printing
+        
         if self.websocket:
             formatted_message = f"{sender.name}: {message}"
-            asyncio.create_task(self.websocket.send_text(formatted_message))  # Send message to WebSocket
+            asyncio.create_task(self.send_message(formatted_message))  # Send message to WebSocket
         return super()._process_received_message(message, sender, silent)
+
+    async def send_message(self, message):
+        # Ensure message is now in an accepted format (str, bytes, etc.)
+        if isinstance(message, (str, bytes, bytearray, memoryview)):
+            await self.websocket.send_text(message)  # Send via WebSocket
+        else:
+            raise TypeError(f"Unsupported message type: {type(message)}")
+
+
     
 
 
@@ -144,15 +151,21 @@ class HIVPrEPCounselor:
             websocket=self.websocket
         )
 
-    def update_history(self, recipient, message, sender):
-        self.agent_history.append({
-            "sender": sender.name,
-            "receiver": recipient.name,
-            "message": message
-        })
+    # def update_history(self, recipient, message, sender):
+    #     self.agent_history.append({
+    #         "sender": sender.name,
+    #         "receiver": recipient.name,
+    #         "message": message
+    #     })
+    
+    def get_latest_response(self):
+        if self.group_chat.messages:
+            return self.group_chat.messages[-1]["content"]  # Retrieves the most recent message
+        return "No messages found."  # Fallback if no messages are available
+
 
     async def initiate_chat(self, user_input: str):
-        self.update_history(self.agents[2], user_input, self.agents[2])  # Patient is the third agent
+        # self.update_history(self.agents[2], user_input, self.agents[2])  # Patient is the third agent
         await self.agents[2].a_initiate_chat(
             recipient=self.manager,
             message=user_input,
