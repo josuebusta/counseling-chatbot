@@ -5,25 +5,26 @@ from typing import List
 from CHIA.CHIA_LangchainEmbeddings import HIVPrEPCounselor, TrackableGroupChatManager
 
 app = FastAPI()
-workflow_manager = HIVPrEPCounselor()
+# workflow_manager = HIVPrEPCounselor(websocket)
 
-class Message(BaseModel):
-    user_id: str
-    message: str
+# class Message(BaseModel):
+#     user_id: str
+#     message: str
 
-@app.post("/send_message/")
-async def send_message(message: Message):
-    response = await workflow_manager.get_response(message.message)
-    return {"response": response}
+# @app.post("/send_message/")
+# async def send_message(message: Message):
+#     response = await workflow_manager.get_response(message.message)
+#     return {"response": response}
 
-@app.get("/history/{user_id}")
-def get_history(user_id: str):
-    return {"history": workflow_manager.get_history()}
+# @app.get("/history/{user_id}")
+# def get_history(user_id: str):
+#     return {"history": workflow_manager.get_history()}
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    workflow_manager = HIVPrEPCounselor(websocket)
 
     # Set the WebSocket for the counselor
     workflow_manager.manager.websocket = websocket  # Pass the websocket to the manager
@@ -61,4 +62,3 @@ async def websocket_endpoint(websocket: WebSocket):
             break
         except Exception as e:
             print(f"Connection error: {e}")
-           

@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from typing import List
 import os
 
+
 # CONFIGURATION 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -23,21 +24,26 @@ class TrackableGroupChatManager(autogen.GroupChatManager):
     # def __init__(self, groupchat, llm_config, websocket, system_message):
     #     super().__init__(groupchat, llm_config)
     #     self.websocket = websocket  # Store the WebSocket connection
-
+    
+    # OVERRIDING process_received_message from the autogen.groupchatmanager class
     def _process_received_message(self, message, sender, silent):
         # Send message to the WebSocket instead of printing
         if self.websocket:
             formatted_message = f"{sender.name}: {message}"
             asyncio.create_task(self.websocket.send_text(formatted_message))  # Send message to WebSocket
         return super()._process_received_message(message, sender, silent)
+    
+
 
 class HIVPrEPCounselor:
     async def initialize(self):
         await asyncio.sleep(1)
 
-    def __init__(self):
+    def __init__(self, websocket: WebSocket):
         load_dotenv()
         self.api_key = os.getenv('OPENAI_API_KEY')
+        self.websocket = websocket
+        print("websocket is!!", self.websocket)
 
         if not self.api_key:
             raise ValueError("API key not found. Please set OPENAI_API_KEY in your .env file.")
@@ -67,7 +73,7 @@ class HIVPrEPCounselor:
 
     def setup_rag(self):
         prompt = hub.pull("rlm/rag-prompt", api_url="https://api.hub.langchain.com")
-        loader = WebBaseLoader("https://github.com/amarisg25/counselling-chatbot/blob/930a7b8deabab8ad286856536d499164968df7a1/embeddings/HIV_PrEP_knowledge_embedding.json")
+        loader = WebBaseLoader("https://github.com/amarisg25/embedding-data-chatbot/blob/main/HIV_PrEP_knowledge_embedding.json")
         data = loader.load()
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         all_splits = text_splitter.split_documents(data)
@@ -88,7 +94,8 @@ class HIVPrEPCounselor:
             human_input_mode="ALWAYS",
             max_consecutive_auto_reply=10,
             code_execution_config={"work_dir": "coding", "use_docker": False},
-            llm_config=self.config_list
+            llm_config=self.config_list,
+            websocket=self.websocket
         )
 
         counselor = autogen.UserProxyAgent(
@@ -97,7 +104,8 @@ class HIVPrEPCounselor:
             is_termination_msg=lambda x: self.check_termination(x),
             human_input_mode="NEVER",
             code_execution_config={"work_dir":"coding", "use_docker":False},
-            llm_config=self.config_list
+            llm_config=self.config_list,
+            websocket=self.websocket
         )
 
         FAQ_agent = autogen.AssistantAgent(
@@ -106,7 +114,8 @@ class HIVPrEPCounselor:
             system_message="Suggests function to use to answer HIV/PrEP counselling questions",
             human_input_mode="NEVER",
             code_execution_config={"work_dir":"coding", "use_docker":False},
-            llm_config=self.config_list
+            llm_config=self.config_list,
+            websocket=self.websocket
         )
 
         self.agents = [counselor, FAQ_agent, patient]
@@ -131,7 +140,8 @@ class HIVPrEPCounselor:
             groupchat=self.group_chat, 
             llm_config=self.config_list,
             #websocket=None,  # Initialize websocket as None
-            system_message="When asked a question about HIV/PREP, always call the FAQ agent before helping the counselor answer. Then have the counselor answer concisely."
+            system_message="When asked a question about HIV/PREP, always call the FAQ agent before helping the counselor answer. Then have the counselor answer concisely.",
+            websocket=self.websocket
         )
 
     def update_history(self, recipient, message, sender):
@@ -144,9 +154,10 @@ class HIVPrEPCounselor:
     async def initiate_chat(self, user_input: str):
         self.update_history(self.agents[2], user_input, self.agents[2])  # Patient is the third agent
         await self.agents[2].a_initiate_chat(
-            self.manager,
+            recipient=self.manager,
             message=user_input,
-            summary_method="reflection_with_llm"
+            summary_method="reflection_with_llm",
+            websocket=self.websocket
         )
 
     def get_history(self):
