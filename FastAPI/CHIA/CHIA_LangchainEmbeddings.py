@@ -100,7 +100,7 @@ class HIVPrEPCounselor:
 
         counselor = autogen.UserProxyAgent(
             name="counselor",
-            system_message="You are an HIV PrEP counselor. Call the function provided to answer user's questions. Use the response to give a correct answer.",
+            system_message="You are an HIV PrEP counselor. Be considerate. Call the function provided to answer user's questions. NEVER stop speaking before you have used the result from the function call, and transformed into conversational english to answer the question.",
             is_termination_msg=lambda x: self.check_termination(x),
             human_input_mode="NEVER",
             code_execution_config={"work_dir":"coding", "use_docker":False},
@@ -156,7 +156,6 @@ class HIVPrEPCounselor:
         await self.agents[2].a_initiate_chat(
             recipient=self.manager,
             message=user_input,
-            summary_method="reflection_with_llm",
             websocket=self.websocket
         )
 
