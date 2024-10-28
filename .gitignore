@@ -1,2 +1,8 @@
 chatbot-env/
 .env
+*.pyc
+__pycache__/
+.DS_Store
+node_modules/
+.vscode/
+.idea/

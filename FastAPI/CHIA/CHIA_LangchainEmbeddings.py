@@ -151,12 +151,12 @@ class HIVPrEPCounselor:
             websocket=self.websocket
         )
 
-    # def update_history(self, recipient, message, sender):
-    #     self.agent_history.append({
-    #         "sender": sender.name,
-    #         "receiver": recipient.name,
-    #         "message": message
-    #     })
+    def update_history(self, recipient, message, sender):
+        self.agent_history.append({
+            "sender": sender.name,
+            "receiver": recipient.name,
+            "message": message
+        })
     
     def get_latest_response(self):
         if self.group_chat.messages:
@@ -165,7 +165,7 @@ class HIVPrEPCounselor:
 
 
     async def initiate_chat(self, user_input: str):
-        # self.update_history(self.agents[2], user_input, self.agents[2])  # Patient is the third agent
+        self.update_history(self.agents[2], user_input, self.agents[2])  # Patient is the third agent
         await self.agents[2].a_initiate_chat(
             recipient=self.manager,
             message=user_input,
