@@ -20,24 +20,46 @@ import os
 # CONFIGURATION 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-class TrackableGroupChatManager(autogen.GroupChatManager):
+# class TrackableGroupChatManager(autogen.GroupChatManager):
     
-        # OVERRIDING process_received_message from the autogen.groupchatmanager class
-    def _process_received_message(self, message, sender, silent):
-        # Send message to the WebSocket instead of printing
+#         # OVERRIDING process_received_message from the autogen.groupchatmanager class
+#     def _process_received_message(self, message, sender, silent):
+#         # Send message to the WebSocket instead of printing
         
+#         if self.websocket:
+#             formatted_message = f"{sender.name}: {message}"
+#             asyncio.create_task(self.send_message(formatted_message))  # Send message to WebSocket
+#         return super()._process_received_message(message, sender, silent)
+
+#     async def send_message(self, message):
+#         # Ensure message is now in an accepted format (str, bytes, etc.)
+#         if isinstance(message, (str, bytes, bytearray, memoryview)):
+#             await self.websocket.send_text(message)  # Send via WebSocket
+#         else:
+#             raise TypeError(f"Unsupported message type: {type(message)}")
+
+class TrackableGroupChatManager(autogen.GroupChatManager):
+
+    # OVERRIDING process_received_message from the autogen.groupchatmanager class
+    def _process_received_message(self, message, sender, silent):
+        # Prepare the JSON message
+        json_message = {
+            "content": message,
+            "sender": sender.name
+        }
+        # Send message to the WebSocket instead of printing
         if self.websocket:
-            formatted_message = f"{sender.name}: {message}"
-            asyncio.create_task(self.send_message(formatted_message))  # Send message to WebSocket
+            asyncio.create_task(self.send_message(json_message))  # Send message as JSON
         return super()._process_received_message(message, sender, silent)
 
     async def send_message(self, message):
         # Ensure message is now in an accepted format (str, bytes, etc.)
+        if isinstance(message, dict):
+            message = json.dumps(message)  # Convert dictionary to JSON string
         if isinstance(message, (str, bytes, bytearray, memoryview)):
             await self.websocket.send_text(message)  # Send via WebSocket
         else:
             raise TypeError(f"Unsupported message type: {type(message)}")
-
 
     
 
