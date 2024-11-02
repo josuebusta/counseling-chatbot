@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   nextjs-frontend:
-    image: counselling-chatbot-nextjs-frontend
+    image: amarisg/counselling-chatbot-nextjs-frontend
     build:
       context: .
       dockerfile: Dockerfile.frontend
@@ -12,7 +12,7 @@ services:
       - app-network
 
   fastapi-backend:
-    image: counselling-chatbot-fastapi-backend
+    image: amarisg/counselling-chatbot-fastapi-backend
     build:
       context: .
       dockerfile: Dockerfile.backend 

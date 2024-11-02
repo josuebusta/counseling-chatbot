@@ -23,7 +23,7 @@ function Chat() {
     
     const wsUrl = hostname === 'localhost' || hostname === '127.0.0.1'
       ? `${protocol}//${hostname}:${port}/ws`
-      : `${protocol}//${hostname}/ws`;
+      : `${protocol}//${hostname}:${port}/ws`;
 
     ws.current = new WebSocket(wsUrl);
 
@@ -34,17 +34,51 @@ function Chat() {
       reconnectAttempts.current = 0;
     };
 
+    // ws.current.onmessage = (event) => {
+    //   const newMessage = { sender: 'Counselor', text: event.data };
+    //   setMessages(prev => [...prev, newMessage]);
+    //   scrollToBottom();
+    // };
+  ws.current.onmessage = (event) => {
+    console.log("Received data:", event.data);
+    
+    let messageData;
+    
+    // Try to parse the message as JSON
+    try {
+      messageData = JSON.parse(event.data);
+    } catch (e) {
+      // If it's not JSON, treat it as a plain text message
+      const newMessage = {
+        sender: 'Counselor',
+        text: event.data
+      };
+      setMessages(prev => [...prev, newMessage]);
+      scrollToBottom();
+      return;
+    }
 
-    ws.current.onmessage = (event) => {
-      console.log("DATA", event.data)
-      console.log("TYPE", type(event.data))
-      if (!event.data.content) {
-        
-        const newMessage = { sender: 'Counselor', text: event.data };
-        setMessages(prev => [...prev, newMessage]);
-        scrollToBottom();
-      }
-    };
+    // Handle JSON messages
+    if (messageData && typeof messageData.content === 'string') {
+      const newMessage = {
+        sender: 'Counselor',
+        text: messageData.content
+      };
+      setMessages(prev => [...prev, newMessage]);
+      scrollToBottom();
+    }
+  };
+    // // If it's a plain text message
+    // else if (typeof event.data === 'string' && !event.data.startsWith('{')) {
+    //   const newMessage = {
+    //     sender: 'Counselor',
+    //     text: event.data
+    //   };
+    //   setMessages(prev => [...prev, newMessage]);
+    //   scrollToBottom();
+    // }
+//   }
+// };
 
     ws.current.onclose = (event) => {
       setIsConnected(false);
