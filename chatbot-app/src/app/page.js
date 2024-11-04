@@ -15,6 +15,7 @@ function Chat() {
   const reconnectTimeout = useRef(null);
   const reconnectAttempts = useRef(0);
   const MAX_RECONNECT_ATTEMPTS = 5;
+  const [isTyping, setIsTyping] = useState(false);
 
   const connectWebSocket = () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -28,7 +29,7 @@ function Chat() {
     ws.current = new WebSocket(wsUrl);
 
     ws.current.onopen = () => {
-      console.log("WebSocket connection established.");
+      console.log("WebSocket connection established!");
       setIsConnected(true);
       setError(null);
       reconnectAttempts.current = 0;
@@ -44,19 +45,32 @@ function Chat() {
     
     let messageData;
     
+    
     // Try to parse the message as JSON
     try {
       messageData = JSON.parse(event.data);
     } catch (e) {
+      setIsTyping(true);
       // If it's not JSON, treat it as a plain text message
       const newMessage = {
         sender: 'Counselor',
         text: event.data
       };
-      setMessages(prev => [...prev, newMessage]);
-      scrollToBottom();
-      return;
-    }
+
+      const newMessageText = newMessage.text;
+      
+      console.log("isTyping inside:", isTyping);
+      if (!newMessageText.includes('patient:') &&
+          !newMessageText.includes('suggests_retrieve_function:') &&
+          !newMessageText.includes('counselor:')) {
+        setMessages(prev => [...prev, newMessage]);
+        setIsTyping(false); // Clear typing indicator after message is shown
+        scrollToBottom();
+      }
+
+    console.log("Plain text message received:", newMessageText);
+    return;
+  }
 
     // Handle JSON messages
     if (messageData && typeof messageData.content === 'string') {
@@ -131,6 +145,7 @@ function Chat() {
 
     const userMessage = { sender: 'You', text: input };
     setMessages(prev => [...prev, userMessage]);
+    
 
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       ws.current.send(input);
@@ -175,6 +190,17 @@ function Chat() {
                 </div>
               </div>
             ))}
+           {isTyping && (
+          <div className="flex justify-start">
+            <div className="bg-gray-100 rounded-lg p-3 mb-2">
+              <div className="flex space-x-2">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-100"></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-200"></div>
+              </div>
+            </div>
+          </div>
+        )}
             <div ref={messagesEndRef} />
           </div>
           {!isConnected && (
