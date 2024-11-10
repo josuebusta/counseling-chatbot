@@ -62,7 +62,11 @@ function Chat() {
       console.log("isTyping inside:", isTyping);
       if (!newMessageText.includes('patient:') &&
           !newMessageText.includes('suggests_retrieve_function:') &&
-          !newMessageText.includes('counselor:')) {
+          !newMessageText.includes('counselor:') 
+          // &&
+          // !newMessageText.includes('assessment_bot:')
+      )
+          {
         setMessages(prev => [...prev, newMessage]);
         setIsTyping(false); // Clear typing indicator after message is shown
         scrollToBottom();

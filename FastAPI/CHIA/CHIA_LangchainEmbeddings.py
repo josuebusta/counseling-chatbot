@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from typing import List
 import os
 from autogen.agentchat.contrib.capabilities.teachability import Teachability
+from .functions import assess_hiv_risk, search_provider
 
 
 # CONFIGURATION 
@@ -38,31 +39,10 @@ class TrackableGroupChatManager(autogen.GroupChatManager):
             await self.websocket.send_text(message)  # Send via WebSocket
         else:
             raise TypeError(f"Unsupported message type: {type(message)}")
-
-# class TrackableGroupChatManager(autogen.GroupChatManager):
-
-#     # OVERRIDING process_received_message from the autogen.groupchatmanager class
-#     def _process_received_message(self, message, sender, silent):
-#         # Prepare the JSON message
-#         json_message = {
-#             "content": message,
-#             "sender": sender.name
-#         }
-#         # Send message to the WebSocket instead of printing
-#         if self.websocket:
-#             asyncio.create_task(self.send_message(json_message))  # Send message as JSON
-#         return super()._process_received_message(message, sender, silent)
-
-#     async def send_message(self, message):
-#         # Ensure message is now in an accepted format (str, bytes, etc.)
-#         if isinstance(message, dict):
-#             message = json.dumps(message)  # Convert dictionary to JSON string
-#         if isinstance(message, (str, bytes, bytearray, memoryview)):
-#             await self.websocket.send_text(message)  # Send via WebSocket
-#         else:
-#             raise TypeError(f"Unsupported message type: {type(message)}")
-
     
+
+
+        
 
 
 class HIVPrEPCounselor:
@@ -98,6 +78,8 @@ class HIVPrEPCounselor:
         # Initialize agents
         self.initialize_agents()
 
+
+
     def check_termination(self, x):
         return x.get("content", "").rstrip().lower() == "end conversation"
 
@@ -128,7 +110,27 @@ class HIVPrEPCounselor:
             websocket=self.websocket
         )
 
-        counselor_system_message = "You are an HIV PrEP counselor. Integrate the answers from the RAG agent to answer questions if there is related information into your final answer. If not, use your own knowledge to provide a helpful and considerate response using motivational interviewing guidelines. Have some touch when answerting the questions, never just use the raw response from calling tool - you are a counselor! For general conversational questions like - How are you? or Hi-, respond in a friendly and engaging manner and DO NOT use the RAG response. Make sure the final answer makes sense given the question asked. "
+        counselor_system_message = """"You are an HIV PrEP counselor. Your goal 
+        is to provide compassionate, thoughtful, and supportive responses based 
+        on motivational interviewing guidelines. Whenever answering patient questions, 
+        integrate relevant information from the RAG agent’s response if applicable, 
+        but always personalize and adapt the information to ensure it feels warm, 
+        empathetic, and conversational. Never respond with unfiltered output from 
+        the tool—approach each conversation as a caring counselor.
+
+        When handling casual greetings or general conversational questions, such 
+        as 'How are you?' or 'Hi,' respond in a friendly, engaging manner, drawing 
+        from your own knowledge rather than the RAG agent's input.
+
+        If assessing HIV risk, follow a step-by-step approach, asking the questions 
+        provided by the assessment tool one at a time. Use the patient’s responses 
+        to assess their HIV risk sensitively and according to the tool’s guidelines, 
+        being careful to reflect understanding and encouragement in every exchange. 
+        After each function call, summarize and convey responses in conversational English, 
+        ensuring each answer feels supportive and tailored to the individual.
+
+        Above all, respond thoughtfully, always keeping the patient's emotional needs in mind."""
+         
         counselor = autogen.UserProxyAgent(
             name="counselor",
             system_message=counselor_system_message,
@@ -142,21 +144,67 @@ class HIVPrEPCounselor:
 
 
 
+            # HIV assessment questions assistant to suggest the function to the assessment agent
+        assessment_bot = autogen.AssistantAgent(
+            name="assessment_bot",
+            is_termination_msg=lambda x: self.check_termination(x),
+            llm_config= self.config_list,# configuration for autogen's enhanced inference API which is compatible with OpenAI API
+            system_message="""When a patient asks to assess HIV risk, only suggest 
+            the function you have been provided with. Ask each question from the 
+            function one by one and return the final answer. Before executing the funcion, 
+            make sure to:
+            1. Tell the patients you will ask them a series of questions. 
+            2. Use motivational interviewing guidelines when answering the question and be considerate and mindful of the patient's feelings.
+            Once you have done that, suggest the function.
+            """,
+            human_input_mode="NEVER",
+            code_execution_config={"work_dir":"coding", "use_docker":False}
+        )
+
+        search_bot = autogen.AssistantAgent(
+            name="search_bot",
+            is_termination_msg=lambda x: self.check_termination(x),
+            llm_config=self.config_list,
+            system_message="""Only when explicitlyasked for a counselor or provider, 
+            only suggest the function you have been provided with and use the ZIP code 
+            provided as an argument. If no ZIP code has been provided, ask for the
+            ZIP code. After getting the provider information, format it in a 
+            conversational way, including:
+            1. Use motivational interviewing guidelines when answering the question and be considerate and mindful of the patient's feelings.
+            2. Clear organization of provider information
+            3. Distance and available services
+            4. Offer to answer questions about the providers
+            5. Encourage reaching out to these providers""",
+            human_input_mode="NEVER",
+            code_execution_config={"work_dir":"coding", "use_docker":False}
+        )
+
+
+
+
+
 
         FAQ_agent = autogen.AssistantAgent(
             name="suggests_retrieve_function",
             is_termination_msg=lambda x: self.check_termination(x),
-            system_message="Suggests function to use to answer HIV/PrEP counselling questions",
+            system_message="Suggests function to use to answer HIV/PrEP counselling questions. Answer with motivational interviewing guidelines in mind. Be considerate and mindful of the patient's feelings.",
             human_input_mode="NEVER",
             code_execution_config={"work_dir":"coding", "use_docker":False},
             llm_config=self.config_list,
             websocket=self.websocket
         )
 
-        self.agents = [counselor, FAQ_agent, patient]
+        self.agents = [counselor, FAQ_agent, patient, assessment_bot, search_bot]
 
-        def answer_question_wrapper(user_question: str):
+        def answer_question_wrapper(user_question: str) -> str:
             return self.answer_question(user_question)
+        
+        async def assess_hiv_risk_wrapper() -> str:
+            return await assess_hiv_risk(self.websocket)
+        
+        def search_provider_wrapper(zip_code: str) -> str:
+            return search_provider(zip_code)
+
         
         autogen.agentchat.register_function(
             answer_question_wrapper,
@@ -164,6 +212,22 @@ class HIVPrEPCounselor:
             executor=counselor,
             name="answer_question",
             description="Retrieves embedding data content to answer user's question.",
+        )
+
+        autogen.agentchat.register_function(
+            assess_hiv_risk_wrapper,
+            caller=assessment_bot,
+            executor=counselor,
+            name="assess_hiv_risk",
+            description="Executes only when the user asks to ASSESS their HIV risk. Ask the questions with motivational interviewing guidelines in mind. Be considerate and mindful of the patient's feelings.",
+        )
+
+        autogen.agentchat.register_function(
+            search_provider_wrapper,
+            caller=search_bot,
+            executor=counselor,
+            name="search_provider",
+            description="Returns a list of nearby providers.",
         )
         
         self.group_chat = autogen.GroupChat(
@@ -175,17 +239,17 @@ class HIVPrEPCounselor:
             groupchat=self.group_chat, 
             llm_config=self.config_list,
             #websocket=None,  # Initialize websocket as None
-            system_message="When asked a question about HIV/PREP, always call the FAQ agent before helping the counselor answer. Then have the counselor answer concisely.",
+            system_message="When asked a question about HIV/PREP, always call the FAQ agent before helping the counselor answer. When asked for a provider, always call the search bot agent befoere helping the counselor answer. In any case, the counselor should answer concisely and in conversational english. ",
             websocket=self.websocket
         )
 
         # Adding teachability to the counselor agent
         
-        teachability = Teachability(
-            reset_db=False,  # Use True to force-reset the memo DB, and False to use an existing DB.
-            path_to_db_dir="./tmp/interactive/teachability_db"  # Can be any path, but teachable agents in a group chat require unique paths.
-        )
-        teachability.add_to_agent(counselor)
+        # teachability = Teachability(
+        #     reset_db=False,  # Use True to force-reset the memo DB, and False to use an existing DB.
+        #     path_to_db_dir="./tmp/interactive/teachability_db"  # Can be any path, but teachable agents in a group chat require unique paths.
+        # )
+        # teachability.add_to_agent(counselor)
 
     def update_history(self, recipient, message, sender):
         self.agent_history.append({
@@ -206,7 +270,7 @@ class HIVPrEPCounselor:
             recipient=self.manager,
             message=user_input,
             websocket=self.websocket,
-            system_message="If you are unsure whose turn it is to talk, you should let the counselor respond. Make sure the final answer makes sense given the question asked. For conversational questions like - How are you? or Hi-, respond in a friendly and engaging manner and DO NOT use the RAG response."
+            system_message="If you are unsure whose turn it is to talk, you should let the counselor respond. Make sure the final answer makes sense given the question asked. For conversational questions like - How are you? or Hi-, respond in a friendly and engaging manner and DO NOT use the RAG response. When the patient specifically asks to assess their HIV risk, use the function suggested for that purpose. When the patient asks for their nearest provider, use the function suggested for that purpose. When asked any other question about HIV/PREP, always call the FAQ agent before to help the counselor answer. Then have the counselor answer the question concisely using the retrieved information."
         )
 
     
@@ -214,3 +278,4 @@ class HIVPrEPCounselor:
 
     def get_history(self):
         return self.agent_history
+

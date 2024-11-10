@@ -92,20 +92,20 @@ counselor_bot = autogen.AssistantAgent(
     silent=True
 )
 
-# counselor_aid - gives the counselor some context
-counselor_aid = RetrieveUserProxyAgent(
-    name="counselor aid",
-    is_termination_msg=lambda x: check_termination(x),
-    system_message="Assistant who has extra content retrieval power for information about HIV and PrEP.",
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=10,
-    retrieve_config={
-        "task": "qa",
-        "docs_path": "/Users/amaris/Desktop/AI_coder/counselling-chatbot/CHIA/HIV_PrEP_knowledge_embedding.json",
-        "get_or_create": True
-    },
-    code_execution_config={"work_dir":"coding", "use_docker":False},
-)
+# # counselor_aid - gives the counselor some context
+# counselor_aid = RetrieveUserProxyAgent(
+#     name="counselor aid",
+#     is_termination_msg=lambda x: check_termination(x),
+#     system_message="Assistant who has extra content retrieval power for information about HIV and PrEP.",
+#     human_input_mode="NEVER",
+#     max_consecutive_auto_reply=10,
+#     retrieve_config={
+#         "task": "qa",
+#         "docs_path": "/Users/amaris/Desktop/AI_coder/counselling-chatbot/CHIA/HIV_PrEP_knowledge_embedding.json",
+#         "get_or_create": True
+#     },
+#     code_execution_config={"work_dir":"coding", "use_docker":False},
+# )
 
 
 # Search provider user proxy agent (Debugging purposes)
