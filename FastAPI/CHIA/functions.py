@@ -39,6 +39,7 @@ async def assess_hiv_risk(websocket: WebSocket) -> str:
         await websocket.send_text(question)
         # Receive the user's response through WebSocket
         response = (await websocket.receive_text()).strip().lower()
+        print("response", response)
         responses[key] = response
         if response == 'yes':
             high_risk = True
@@ -48,7 +49,7 @@ async def assess_hiv_risk(websocket: WebSocket) -> str:
         result = "Based on your responses, you may be at a higher risk for HIV. It is recommended to consider taking PrEP to protect from HIV infection."
     else:
         result = "Based on your responses, your risk for HIV appears to be lower. However, continue to practice safe behaviors and consult a healthcare professional for personalized advice."
-
+    print("result", result)
     return result
 
 

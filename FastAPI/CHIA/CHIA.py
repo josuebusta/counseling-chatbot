@@ -115,6 +115,7 @@ def assess_hiv_risk():
     
     high_risk = False
     responses = {}
+    answer = ""
     
     print("HIV Risk Assessment Questionnaire\n")
     
@@ -125,11 +126,11 @@ def assess_hiv_risk():
             high_risk = True
     
     if high_risk:
-        print("\nBased on your responses, you may be at a higher risk for HIV. It is recommended to consider taking PrEP to protect from HIV infection.")
+        answer = "\nBased on your responses, you may be at a higher risk for HIV. It is recommended to consider taking PrEP to protect from HIV infection."
     else:
-        print("\nBased on your responses, your risk for HIV appears to be lower. However, continue to practice safe behaviors and consult a healthcare professional for personalized advice.")
+        answer = "\nBased on your responses, your risk for HIV appears to be lower. However, continue to practice safe behaviors and consult a healthcare professional for personalized advice."
     
-    return responses
+    return answer
 
 
 import gradio as gr
