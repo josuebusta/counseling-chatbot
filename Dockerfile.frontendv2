@@ -1,0 +1,70 @@
+# Use Debian-based Node.js image
+FROM node:18-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    build-essential \
+    gcc \
+    g++ \
+    make \
+    git \
+    curl \
+    libseccomp-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Supabase CLI with architecture detection
+RUN arch=$(uname -m) && \
+    if [ "$arch" = "aarch64" ] || [ "$arch" = "arm64" ]; then \
+        ARCH="arm64"; \
+    else \
+        ARCH="amd64"; \
+    fi && \
+    curl -L "https://github.com/supabase/cli/releases/download/v1.127.3/supabase_1.127.3_linux_${ARCH}.deb" -o supabase.deb && \
+    dpkg -i supabase.deb && \
+    rm supabase.deb
+
+# Set environment variables
+ENV NODE_OPTIONS="--max_old_space_size=4096"
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# These need to be set at build time for Next.js
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+# Set the working directory
+WORKDIR /chatbot-ui-shadcn
+
+# Copy package files
+COPY ./chatbot-ui-shadcn/package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Update browserslist database
+RUN npx update-browserslist-db@latest
+
+# Copy the rest of your application code
+COPY ./chatbot-ui-shadcn ./
+
+# Create a production build configuration
+RUN echo '{ \
+    "experimental": { \
+        "windowsAbi": "x64", \
+        "serverComponentsExternalPackages": ["@xenova/transformers"] \
+    } \
+}' > ./next.config.experimental.json
+
+# Modify the build command to skip Supabase operations in production
+RUN sed -i 's/"build": "next build"/"build": "SKIP_SUPABASE=true next build"/' package.json
+
+# Build the application
+RUN SKIP_SUPABASE=true npm run build
+
+# Expose the port
+EXPOSE 3000
+
+# Start the application
+CMD ["npm", "run", "start"]

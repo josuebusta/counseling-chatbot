@@ -40,8 +40,7 @@ async def assess_hiv_risk(websocket: WebSocket) -> str:
         # Receive the user's response through WebSocket
         response = await websocket.receive_text()
         response = response.strip().lower().strip('"')
-        print("response", response) == "yes"
-        print("response", str(response) == "yes")
+
         responses[key] = response
         if response == "yes":
             high_risk = True
