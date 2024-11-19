@@ -1,4 +1,4 @@
-chatbot-env/
+counselling-env/
 .env
 *.pyc
 __pycache__/
@@ -7,3 +7,4 @@ node_modules/
 .vscode/
 .idea/
 .next/
+counselling-env/
