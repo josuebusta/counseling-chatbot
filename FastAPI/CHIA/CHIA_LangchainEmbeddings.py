@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from typing import List
 import os
 from autogen.agentchat.contrib.capabilities.teachability import Teachability
-from .functions import assess_hiv_risk, search_provider
+from .functions import assess_hiv_risk, search_provider, assess_ttm_stage_single_question
 
 
 # CONFIGURATION 
@@ -156,6 +156,7 @@ class HIVPrEPCounselor:
             1. Tell the patients you will ask them a series of questions. 
             2. Use motivational interviewing guidelines when answering the question and be considerate and mindful of the patient's feelings.
             Once you have done that, suggest the function.
+            Use the answer from the function to make a final answer.
             """,
             human_input_mode="NEVER",
             code_execution_config={"work_dir":"coding", "use_docker":False}
@@ -165,7 +166,7 @@ class HIVPrEPCounselor:
             name="search_bot",
             is_termination_msg=lambda x: self.check_termination(x),
             llm_config=self.config_list,
-            system_message="""Only when explicitlyasked for a counselor or provider, 
+            system_message="""Only when explicitly asked for a counselor or provider, 
             only suggest the function you have been provided with and use the ZIP code 
             provided as an argument. If no ZIP code has been provided, ask for the
             ZIP code. After getting the provider information, format it in a 
@@ -175,6 +176,16 @@ class HIVPrEPCounselor:
             3. Distance and available services
             4. Offer to answer questions about the providers
             5. Encourage reaching out to these providers""",
+            human_input_mode="NEVER",
+            code_execution_config={"work_dir":"coding", "use_docker":False}
+        )
+
+        status_bot = autogen.AssistantAgent(
+            name="status_bot",
+            is_termination_msg=lambda x: self.check_termination(x),
+            llm_config=self.config_list,
+            system_message="""Only when explicitly asked to assess status of change, 
+            suggest the function that you have been provided with.""",
             human_input_mode="NEVER",
             code_execution_config={"work_dir":"coding", "use_docker":False}
         )
@@ -194,7 +205,7 @@ class HIVPrEPCounselor:
             websocket=self.websocket
         )
 
-        self.agents = [counselor, FAQ_agent, patient, assessment_bot, search_bot]
+        self.agents = [counselor, FAQ_agent, patient, assessment_bot, search_bot, status_bot]
 
         def answer_question_wrapper(user_question: str) -> str:
             return self.answer_question(user_question)
@@ -205,7 +216,18 @@ class HIVPrEPCounselor:
         def search_provider_wrapper(zip_code: str) -> str:
             return search_provider(zip_code)
 
-        
+
+        async def assess_status_of_change_wrapper() -> str:
+            return await assess_ttm_stage_single_question(self.websocket)
+
+        autogen.agentchat.register_function(
+            assess_status_of_change_wrapper,
+            caller=status_bot,
+            executor=counselor,
+            name="assess_status_of_change",
+            description="Assesses the status of change for the patient.",
+        )
+
         autogen.agentchat.register_function(
             answer_question_wrapper,
             caller=FAQ_agent,
@@ -245,11 +267,11 @@ class HIVPrEPCounselor:
 
         # Adding teachability to the counselor agent
         
-        # teachability = Teachability(
-        #     reset_db=False,  # Use True to force-reset the memo DB, and False to use an existing DB.
-        #     path_to_db_dir="./tmp/interactive/teachability_db"  # Can be any path, but teachable agents in a group chat require unique paths.
-        # )
-        # teachability.add_to_agent(counselor)
+        teachability = Teachability(
+            reset_db=False,  # Use True to force-reset the memo DB, and False to use an existing DB.
+            path_to_db_dir="./tmp/interactive/teachability_db"  # Can be any path, but teachable agents in a group chat require unique paths.
+        )
+        teachability.add_to_agent(counselor)
 
     def update_history(self, recipient, message, sender):
         self.agent_history.append({

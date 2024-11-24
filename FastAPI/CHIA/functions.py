@@ -27,7 +27,12 @@ async def assess_hiv_risk(websocket: WebSocket) -> str:
         'partner_hiv_positive/unknown': "Do you have a sexual partner who is HIV positive/ has unknown HIV status? (Yes/No): ",
         'std_history': "Have you been diagnosed with a sexually transmitted disease (STD) in the past 12 months? (Yes/No): ",
     }
-    
+
+    prompt = """It's completely understandable to feel concerned about your health, 
+    and I'm here to help you through this. To assess your HIV risk, I'll need to 
+    ask you a series of questions. Please remember that this is a safe space, 
+    and your feelings and experiences are important. Shall we begin? I'll be asking you some questions one at a time. \n\n"""
+
     high_risk = False
     responses = {}
     result = ""
@@ -36,7 +41,10 @@ async def assess_hiv_risk(websocket: WebSocket) -> str:
 
     for key, question in questions.items():
         # Send the question to the client
-        await websocket.send_text(question)
+        if key == "sex_with_men": # when it's the first question, send the prompt first
+            await websocket.send_text(prompt + question)
+        else:
+            await websocket.send_text(question)
         # Receive the user's response through WebSocket
         response = await websocket.receive_text()
         response = response.strip().lower().strip('"')
@@ -49,9 +57,9 @@ async def assess_hiv_risk(websocket: WebSocket) -> str:
     # Send the assessment result based on the responses
     
     if high_risk:
-        result = "Based on your responses, you may be at a higher risk for HIV. It is recommended to consider taking PrEP to protect from HIV infection."
+        result = "The individual is at a higher risk for HIV. It is recommended to consider taking PrEP to protect from HIV infection."
     else:
-        result = "Based on your responses, your risk for HIV appears to be lower. However, continue to practice safe behaviors and consult a healthcare professional for personalized advice."
+        result = "The individual is at a lower risk for HIV. However, continue to practice safe behaviors and consult a healthcare professional for personalized advice."
     print("result", result)
     return result
 
@@ -131,3 +139,52 @@ def search_provider(zip_code: str) -> Dict:
 
 # # Example usage:
 # print(search_provider("02912"))
+
+
+async def assess_ttm_stage_single_question(websocket: WebSocket) -> str:
+    """
+    Assess the TTM stage of change based on a single validated question and response.
+    
+    Parameters:
+    response (str): The individual's response to the question:
+                    "Are you currently engaging in Prep uptake on a regular basis?"
+                    Valid response options:
+                    - "No, and I do not intend to start in the next 6 months" (Precontemplation)
+                    - "No, but I intend to start in the next 6 months" (Contemplation)
+                    - "No, but I intend to start in the next 30 days" (Preparation)
+                    - "Yes, I have been for less than 6 months" (Action)
+                    - "Yes, I have been for more than 6 months" (Maintenance)
+    
+    Returns:
+    str: The stage of change (Precontemplation, Contemplation, Preparation, Action, Maintenance).
+    """
+
+    question = "Of course, I will ask you a single question to assess your status of change. \n Are you currently engaging in Prep uptake on a regular basis? Please respond with the number corresponding to your answer: \n 1. No, and I do not intend to start in the next 6 months. \n 2. No, but I intend to start in the next 6 months. \n 3. No, but I intend to start in the next 30 days. \n 4. Yes, I have been for less than 6 months. \n 5. Yes, I have been for more than 6 months."
+
+
+    
+    response = ""
+    stage = ""
+    
+    # Map the response to the corresponding TTM stage
+    while response not in ["1", "2", "3", "4", "5"]:
+        await websocket.send_text(question)
+        # Receive the user's response through WebSocket
+        response = await websocket.receive_text()
+        response = response.strip().lower().strip('"')
+        if response == "1":
+            stage = "Precontemplation"
+        elif response == "2":
+            stage = "Contemplation"
+        elif response == "3":
+            stage = "Preparation"
+        elif response == "4":
+            stage = "Action"
+        elif response == "5":
+            stage = "Maintenance"
+        else:
+            stage = "Unclassified"  # For unexpected or invalid responses
+    
+    answer = f"The individual is in the '{stage}' stage of change." if stage != "Unclassified" else "Please respond with the number corresponding to your answer: 1. No, and I do not intend to start in the next 6 months 2. No, but I intend to start in the next 6 months 3. No, but I intend to start in the next 30 days 4. Yes, I have been for less than 6 months 5. Yes, I have been for more than 6 months"
+    return answer
+
