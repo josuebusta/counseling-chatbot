@@ -75,11 +75,29 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    setTimeout(() => {
-      handleFocusChatInput()
-    }, 200) // FIX: hacky
-  }, [selectedPreset, selectedAssistant])
+  // useEffect(() => {
+  //   handleSendMessage("Hi!", chatMessages, false)
+  //   setTimeout(() => {
+  //     handleFocusChatInput()
+  //   }, 200) // FIX: hacky
+  // }, [selectedPreset, selectedAssistant])
+  // Modify the useEffect to only send initial message once
+  
+  // useEffect(() => {
+  //   // Only send initial message if it hasn't been sent before
+  //   if (!initialMessageSent.current) {
+  //     handleSendMessage("Hi!", [], false)
+  //     initialMessageSent.current = true
+
+  //     setTimeout(() => {
+  //       handleFocusChatInput()
+  //     }, 200)
+  //   }
+  // }, []) // Dependencies remain the same
+
+
+
+  const initialMessageSent = useRef(false)
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (!isTyping && event.key === "Enter" && !event.shiftKey) {
@@ -87,6 +105,7 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
       event.preventDefault()
       setIsPromptPickerOpen(false)
       handleSendMessage(userInput, chatMessages, false)
+      handleInputChange("")
     }
 
     // Consolidate conditions to avoid TypeScript error

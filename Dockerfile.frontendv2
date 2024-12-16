@@ -1,70 +1,50 @@
-# Use Debian-based Node.js image
-FROM node:18-slim
+FROM node:18-slim AS builder
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    python3 \
-    build-essential \
-    gcc \
-    g++ \
-    make \
-    git \
-    curl \
-    libseccomp-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Supabase CLI with architecture detection
-RUN arch=$(uname -m) && \
-    if [ "$arch" = "aarch64" ] || [ "$arch" = "arm64" ]; then \
-        ARCH="arm64"; \
-    else \
-        ARCH="amd64"; \
-    fi && \
-    curl -L "https://github.com/supabase/cli/releases/download/v1.127.3/supabase_1.127.3_linux_${ARCH}.deb" -o supabase.deb && \
-    dpkg -i supabase.deb && \
-    rm supabase.deb
-
-# Set environment variables
-ENV NODE_OPTIONS="--max_old_space_size=4096"
-ENV NEXT_TELEMETRY_DISABLED=1
-
-# These need to be set at build time for Next.js
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-# Set the working directory
 WORKDIR /chatbot-ui-shadcn
 
-# Copy package files
-COPY ./chatbot-ui-shadcn/package*.json ./
+# Create directory and set permissions before copying files
+RUN mkdir -p /chatbot-ui-shadcn && \
+    chown -R node:node /chatbot-ui-shadcn
 
-# Install dependencies
-RUN npm install
+# Switch to node user before any npm operations
+USER node
 
-# Update browserslist database
-RUN npx update-browserslist-db@latest
+# Copy package files with correct ownership
+COPY --chown=node:node ./chatbot-ui-shadcn/package*.json ./
 
-# Copy the rest of your application code
-COPY ./chatbot-ui-shadcn ./
+# Install dependencies as node user
+RUN npm install --legacy-peer-deps --production=false && \
+    npx update-browserslist-db@latest
 
-# Create a production build configuration
-RUN echo '{ \
-    "experimental": { \
-        "windowsAbi": "x64", \
-        "serverComponentsExternalPackages": ["@xenova/transformers"] \
-    } \
-}' > ./next.config.experimental.json
+# Copy the rest of the application with correct ownership
+COPY --chown=node:node ./chatbot-ui-shadcn ./
 
-# Modify the build command to skip Supabase operations in production
-RUN sed -i 's/"build": "next build"/"build": "SKIP_SUPABASE=true next build"/' package.json
+# Set environment variables
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_OPTIONS="--max_old_space_size=4096"
 
 # Build the application
-RUN SKIP_SUPABASE=true npm run build
+RUN npm run build
 
-# Expose the port
-EXPOSE 3000
+# Production stage
+FROM node:18-slim AS runner
+
+WORKDIR /chatbot-ui-shadcn
+
+# Create directory and set permissions
+RUN mkdir -p /chatbot-ui-shadcn && \
+    chown -R node:node /chatbot-ui-shadcn
+
+# Switch to node user
+USER node
+
+# Copy only necessary files from builder
+COPY --from=builder --chown=node:node /chatbot-ui-shadcn/next.config.js ./
+COPY --from=builder --chown=node:node /chatbot-ui-shadcn/public ./public
+COPY --from=builder --chown=node:node /chatbot-ui-shadcn/.next ./.next
+COPY --from=builder --chown=node:node /chatbot-ui-shadcn/node_modules ./node_modules
+COPY --from=builder --chown=node:node /chatbot-ui-shadcn/package.json ./package.json
 
 # Start the application
-CMD ["npm", "run", "start"]
+CMD ["npm", "start"]

@@ -8,73 +8,220 @@ import json
 from fastapi.middleware.cors import CORSMiddleware
 
 
+# app = FastAPI()
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],  # Add your frontend URL
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+
+# @app.get("/")
+# def read_root():
+#     return {"message": "Hello World"}
+
+
+# @app.websocket("/ws")
+# async def websocket_endpoint(websocket: WebSocket):
+#     await websocket.accept()
+#     workflow_manager = None
+    
+#     try:
+#         # Wait for user_id first
+#         initial_data = await websocket.receive_text()
+#         # try:
+#         parsed_initial = json.loads(initial_data)
+#         print(f"Parsed initial data type: {parsed_initial.get('type')}")
+#         print(f"Parsed initial data content: {parsed_initial.get('content')}")
+#         if parsed_initial.get('type') == 'user_id':
+#             user_id = parsed_initial['content']
+#             workflow_manager = HIVPrEPCounselor(websocket, user_id)
+        
+#         elif parsed_initial.get('type') == 'message':
+#             # Process the message
+#             await workflow_manager.initiate_chat(parsed_initial.get('content'))
+#             response = workflow_manager.get_latest_response()
+
+#             if response is not None:
+#                 if isinstance(response, Mapping):
+#                     message = json.dumps(response)
+#                     await websocket.send_text(message)
+#                 elif isinstance(response, (str, bytes, bytearray, memoryview)):
+#                     await websocket.send_text(response)
+#                 else:
+#                     print(f"Unsupported message type: {type(response)}")
+#             else:
+#                 print("Response is None; nothing to send.")
+
+#         else:
+#             print("Invalid message type")
+
+#     except WebSocketDisconnect:
+#         print("Client disconnected")
+#     except Exception as e:
+#         print(f"Connection error: {e}")
+#         try:
+#             await websocket.send_text(json.dumps({
+#                 "error": f"Server error: {str(e)}"
+#             }))
+#         except:
+#             pass
+#     finally:
+#         if workflow_manager:
+#             # Add any cleanup code for workflow_manager here
+#             pass
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional, Dict
+import json
+import logging
+import asyncio
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class ConnectionManager:
+    def __init__(self):
+        self._active_connections: Dict[str, Dict] = {}
+        self._lock = asyncio.Lock()
+        self.user_id = None
+
+    async def connect(self, websocket: WebSocket, user_id: str):
+        async with self._lock:
+            # Check if user already has an active connection
+            if user_id in self._active_connections:
+                existing_conn = self._active_connections[user_id]
+                if existing_conn["websocket"] == websocket:
+                    # Same websocket, just return
+                    return
+                else:
+                    # Different websocket, close old one
+                    try:
+                        await existing_conn["websocket"].close()
+                    except:
+                        pass
+                
+            # Create new connection
+            self._active_connections[user_id] = {
+                "websocket": websocket,
+                "workflow_manager": None,
+                "initialized": False
+            }
+            
+            logger.info(f"Client connected: {user_id}")
+            await websocket.send_text(json.dumps({
+                "type": "connection_established",
+                "content": "WebSocket connection established"
+            }))
+
+    def set_initialized(self, user_id: str, workflow_manager):
+        if user_id in self._active_connections:
+            self._active_connections[user_id]["workflow_manager"] = workflow_manager
+            self._active_connections[user_id]["initialized"] = True
+            logger.info(f"Initialized workflow manager for user: {user_id}")
+
+    def is_initialized(self, user_id: str) -> bool:
+        return self._active_connections.get(user_id, {}).get("initialized", False)
+
+    async def disconnect(self, user_id: str):
+        async with self._lock:
+            if user_id in self._active_connections:
+                del self._active_connections[user_id]
+                logger.info(f"Client disconnected: {user_id}")
+
+    def get_connection(self, user_id: str) -> Optional[Dict]:
+        return self._active_connections.get(user_id)
+    
+    def set_user_id(self, user_id: str):
+        self.user_id = user_id
+    
+    def get_user_id(self) -> Optional[str]:
+        return self.user_id
+
 app = FastAPI()
+manager = ConnectionManager()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Add your frontend URL
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.get("/")
-def read_root():
-    return {"message": "Hello World"}
-
-
-
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    workflow_manager = HIVPrEPCounselor(websocket)
-
-    # Set the WebSocket for the counselor
-    workflow_manager.manager.websocket = websocket  # Pass the websocket to the manager
-
-    # # Send initial greeting to the frontend
-    # initial_message = "How can I help you?"
-    # await websocket.send_text(initial_message)
-
-    while True:
-        try:
-            # Receive message from the front end
+    user_id = None
+    connection_initialized = False
+    
+    try:
+        while True:
             data = await websocket.receive_text()
-            print(f"Received message: {data}")
-
-            # Process the user input with the manager
-            await workflow_manager.initiate_chat(data)
-
-            # Optionally retrieve the latest chat response from the workflow manager
-            response = workflow_manager.get_latest_response() 
-
-            # Send the latest response to the frontend
-            if response is not None:  # Check for None explicitly
-                if isinstance(response, Mapping):
-                    # Convert the dict to a JSON string
-                    message = json.dumps(response)
-                    await websocket.send_text(message)  # Send the JSON message via WebSocket
-                elif isinstance(response, (str, bytes, bytearray, memoryview)):
-                    await websocket.send_text(response)  # Send directly if it's a string or similar type
-                else:
-                    raise TypeError(f"Unsupported message type: {type(response)}")
-            else:
-                print("Response is None; nothing to send.")
-
-            # # Retrieve the entire chat history (including counselor's responses)
-            # chat_history = workflow_manager.get_history()
+            parsed_data = json.loads(data)
+            print(f"parsed_data: {parsed_data}")
+            message_type = parsed_data.get('type')
+            content = parsed_data.get('content')
+            message_id = parsed_data.get('messageId')
             
-            # # Send the chat history to the frontend (if needed)
-            # for message in chat_history:
-            #     if message['sender'] != 'patient':
-            #         formatted_message = f"{message['sender']} to {message['receiver']}: {message['message']}"
-            #         await websocket.send_text(formatted_message)
-
-
+            # First message must be user_id
+            if not connection_initialized:
+                if message_type != "user_id":
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "content": "First message must be user_id"
+                    }))
                 
-
-        except WebSocketDisconnect:
-            print("Client disconnected")
-            break
-        except Exception as e:
-            print(f"Connection error: {e}")
+                    continue
+                
+                user_id = content
+                if manager.is_initialized(user_id):
+                    # Close existing connection if any
+                    old_connection = manager.get_connection(user_id)
+                    if old_connection:
+                        try:
+                            await old_connection["websocket"].close()
+                        except:
+                            pass
+                
+                await manager.connect(websocket, user_id)
+                workflow_manager = HIVPrEPCounselor(websocket, user_id)
+                manager.set_initialized(user_id, workflow_manager)
+                connection_initialized = True
+                
+                await websocket.send_text(json.dumps({
+                    "type": "connection_established",
+                    "content": "WebSocket connection established"
+                }))
+                continue
+            
+            # Handle normal messages
+            if message_type == "message":
+                try:
+                    connection = manager.get_connection(user_id)
+                    workflow_manager = connection["workflow_manager"]
+                    await workflow_manager.initiate_chat(content)
+                    response = workflow_manager.get_latest_response()
+                    
+                    await websocket.send_text(json.dumps({
+                        "type": "chat_response",
+                        "messageId": message_id,
+                        "content": response
+                    }))
+                except Exception as e:
+                    logger.error(f"Error processing message: {str(e)}")
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "messageId": message_id,
+                        "content": f"Error processing message: {str(e)}"
+                    }))
+    
+    except WebSocketDisconnect:
+        if user_id:
+            await manager.disconnect(user_id)
+    except Exception as e:
+        logger.error(f"Connection error: {str(e)}")
+        if user_id:
+            await manager.disconnect(user_id)

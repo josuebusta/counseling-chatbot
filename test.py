@@ -122,7 +122,7 @@ search_provider("02906")
 
 def assess_hiv_risk():
     questions = {
-        'sex_with_men': "Have you had unprotected sexual intercourse with men in the past 3 months? (Yes/No): ",
+        'sex_with_men': "Have you had condomless sexual intercourse with men in the past 3 months? (Yes/No): ",
         'multiple_partners': "Have you had multiple sexual partners in the past 12 months? (Yes/No): ",
         'iv_drug_use': "Have you used intravenous drugs or shared needles? (Yes/No): ",
         'partner_hiv_positive/unknown': "Do you have a sexual partner who is HIV positive/ has unknown HIV status? (Yes/No): ",

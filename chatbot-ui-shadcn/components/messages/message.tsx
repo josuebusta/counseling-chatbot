@@ -255,11 +255,11 @@ export const Message: FC<MessageProps> = ({
 
               <div className="font-semibold">
                 {message.role === "assistant"
-                  ? "Counselor"
-                    ? "Counselor"
+                  ? "CHIA"
+                    ? "CHIA"
                     : selectedAssistant
-                      ? "Counselor"
-                      : "Counselor"
+                      ? "CHIA"
+                      : "CHIA"
                   : profile?.display_name ?? profile?.username}
               </div>
             </div>

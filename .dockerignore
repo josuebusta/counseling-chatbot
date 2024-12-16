@@ -1,6 +1,13 @@
-node_modules
-.next
-.git
-README.md
-.env*
-.env.local
+counselling-env/
+.env
+*.pyc
+__pycache__/
+.DS_Store
+node_modules/
+.vscode/
+.idea/
+.next/
+counselling-env/
+echo "node_modules/
+.git/
+.env.local" > .dockerignore

@@ -43,218 +43,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
 import { TextareaAutosize } from "../ui/textarea-autosize"
 import { WithTooltip } from "../ui/with-tooltip"
 import { ThemeSwitcher } from "./theme-switcher"
+import { wsManager } from '@/websocketManager';
 
 interface ProfileSettingsProps {}
 
-// export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
-//   const {
-//     profile,
-//     setProfile,
-//     envKeyMap,
-//     setAvailableHostedModels,
-//     setAvailableOpenRouterModels,
-//     availableOpenRouterModels
-//   } = useContext(ChatbotUIContext)
-//   console.log("Profile state:", profile)
-//   console.log("Context values:", {envKeyMap, availableOpenRouterModels})
 
-// useEffect(() => {
-//   async function checkAuth() {
-//     const authData = await supabase.auth.getSession()
-//     console.log("Auth session:", authData)
-//   }
-//   checkAuth()
-// }, [])
-
-
-
-// useEffect(() => {
-//   async function fetchProfile() {
-//     const { data, error } = await supabase
-//       .from('profiles')
-//       .select('*')
-//       .eq('id', '0fb7b909-51dc-4104-b341-623f38035094')
-//     console.log("Profile data:", data, "Error:", error)
-//   }
-//   fetchProfile()
-// }, [])
-//   const router = useRouter()
-
-//   const buttonRef = useRef<HTMLButtonElement>(null)
-
-//   const [isOpen, setIsOpen] = useState(false)
-
-//   const [displayName, setDisplayName] = useState(profile?.display_name || "")
-//   const [username, setUsername] = useState(profile?.username || "")
-//   const [usernameAvailable, setUsernameAvailable] = useState(true)
-//   const [loadingUsername, setLoadingUsername] = useState(false)
-//   const [profileImageSrc, setProfileImageSrc] = useState(
-//     profile?.image_url || ""
-//   )
-//   const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
-//   const [profileInstructions, setProfileInstructions] = useState(
-//     profile?.profile_context || ""
-//   )
-
-//   const [useAzureOpenai, setUseAzureOpenai] = useState(
-//     profile?.use_azure_openai
-//   )
-//   const [openaiAPIKey, setOpenaiAPIKey] = useState(
-//     profile?.openai_api_key || ""
-//   )
-//   const [openaiOrgID, setOpenaiOrgID] = useState(
-//     profile?.openai_organization_id || ""
-//   )
-//   const [azureOpenaiAPIKey, setAzureOpenaiAPIKey] = useState(
-//     profile?.azure_openai_api_key || ""
-//   )
-//   const [azureOpenaiEndpoint, setAzureOpenaiEndpoint] = useState(
-//     profile?.azure_openai_endpoint || ""
-//   )
-//   const [azureOpenai35TurboID, setAzureOpenai35TurboID] = useState(
-//     profile?.azure_openai_35_turbo_id || ""
-//   )
-//   const [azureOpenai45TurboID, setAzureOpenai45TurboID] = useState(
-//     profile?.azure_openai_45_turbo_id || ""
-//   )
-//   const [azureOpenai45VisionID, setAzureOpenai45VisionID] = useState(
-//     profile?.azure_openai_45_vision_id || ""
-//   )
-//   const [azureEmbeddingsID, setAzureEmbeddingsID] = useState(
-//     profile?.azure_openai_embeddings_id || ""
-//   )
-//   const [anthropicAPIKey, setAnthropicAPIKey] = useState(
-//     profile?.anthropic_api_key || ""
-//   )
-//   const [googleGeminiAPIKey, setGoogleGeminiAPIKey] = useState(
-//     profile?.google_gemini_api_key || ""
-//   )
-//   const [mistralAPIKey, setMistralAPIKey] = useState(
-//     profile?.mistral_api_key || ""
-//   )
-//   const [groqAPIKey, setGroqAPIKey] = useState(profile?.groq_api_key || "")
-//   const [perplexityAPIKey, setPerplexityAPIKey] = useState(
-//     profile?.perplexity_api_key || ""
-//   )
-
-//   const [openrouterAPIKey, setOpenrouterAPIKey] = useState(
-//     profile?.openrouter_api_key || ""
-//   )
-
-//   const handleSignOut = async () => {
-//     await supabase.auth.signOut()
-//     router.push("/login")
-//     router.refresh()
-//     return
-//   }
-
-//   const handleSave = async () => {
-//     if (!profile) return
-//     let profileImageUrl = profile.image_url
-//     let profileImagePath = ""
-
-//     if (profileImageFile) {
-//       const { path, url } = await uploadProfileImage(profile, profileImageFile)
-//       profileImageUrl = url ?? profileImageUrl
-//       profileImagePath = path
-//     }
-
-//     const updatedProfile = await updateProfile(profile.id, {
-//       ...profile,
-//       display_name: displayName,
-//       username,
-//       profile_context: profileInstructions,
-//       image_url: profileImageUrl,
-//       image_path: profileImagePath,
-//       openai_api_key: openaiAPIKey,
-//       openai_organization_id: openaiOrgID,
-//       anthropic_api_key: anthropicAPIKey,
-//       google_gemini_api_key: googleGeminiAPIKey,
-//       mistral_api_key: mistralAPIKey,
-//       groq_api_key: groqAPIKey,
-//       perplexity_api_key: perplexityAPIKey,
-//       use_azure_openai: useAzureOpenai,
-//       azure_openai_api_key: azureOpenaiAPIKey,
-//       azure_openai_endpoint: azureOpenaiEndpoint,
-//       azure_openai_35_turbo_id: azureOpenai35TurboID,
-//       azure_openai_45_turbo_id: azureOpenai45TurboID,
-//       azure_openai_45_vision_id: azureOpenai45VisionID,
-//       azure_openai_embeddings_id: azureEmbeddingsID,
-//       openrouter_api_key: openrouterAPIKey
-//     })
-
-//     setProfile(updatedProfile)
-
-//     toast.success("Profile updated!")
-
-//     setIsOpen(false)
-//   }
-
-//   const debounce = (func: (...args: any[]) => void, wait: number) => {
-//     let timeout: NodeJS.Timeout | null
-
-//     return (...args: any[]) => {
-//       const later = () => {
-//         if (timeout) clearTimeout(timeout)
-//         func(...args)
-//       }
-
-//       if (timeout) clearTimeout(timeout)
-//       timeout = setTimeout(later, wait)
-//     }
-//   }
-
-//   const checkUsernameAvailability = useCallback(
-//     debounce(async (username: string) => {
-//       if (!username) return
-
-//       if (username.length < PROFILE_USERNAME_MIN) {
-//         setUsernameAvailable(false)
-//         return
-//       }
-
-//       if (username.length > PROFILE_USERNAME_MAX) {
-//         setUsernameAvailable(false)
-//         return
-//       }
-
-//       const usernameRegex = /^[a-zA-Z0-9_]+$/
-//       if (!usernameRegex.test(username)) {
-//         setUsernameAvailable(false)
-//         toast.error(
-//           "Username must be letters, numbers, or underscores only - no other characters or spacing allowed."
-//         )
-//         return
-//       }
-
-//       setLoadingUsername(true)
-
-//       const response = await fetch(`/api/username/available`, {
-//         method: "POST",
-//         body: JSON.stringify({ username })
-//       })
-
-//       const data = await response.json()
-//       const isAvailable = data.isAvailable
-
-//       setUsernameAvailable(isAvailable)
-
-//       if (username === profile?.username) {
-//         setUsernameAvailable(true)
-//       }
-
-//       setLoadingUsername(false)
-//     }, 500),
-//     []
-//   )
-
-//   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-//     if (e.key === "Enter") {
-//       buttonRef.current?.click()
-//     }
-//   }
-
-//   if (!profile) return null
 
 export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
   const {
@@ -296,24 +89,30 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
   const [openrouterAPIKey, setOpenrouterAPIKey] = useState("")
 
   // Initialize profile data
-  useEffect(() => {
-    let mounted = true
+useEffect(() => {
+  let mounted = true
 
-    const initializeProfile = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        console.log("Full session object:", session)
-        console.log("User object:", session?.user)
-        console.log("User ID:", session?.user?.id)
-          
-        if (!session?.user?.id) {
-          console.log('No authenticated user')
-          router.push("/login")
-          return
-        }
+  const initializeProfile = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
       
-        console.log("Querying for user ID:", session.user.id)
-        // Fetch profile data for authenticated user
+      if (!session?.user?.id) {
+        console.log('No authenticated user')
+        router.push("/login")
+        return
+      }
+      await wsManager.initializeWithUserId(session.user.id);
+
+      // // Initialize WebSocket manager with user ID
+      // wsManager.initializeWithUserId(session.user.id);
+      // const ws = wsManager.getSocket();
+      // ws.send(JSON.stringify({
+      //   type: 'user_id',
+      //   content: session.user.id
+      // }));
+    
+      console.log("Querying for user ID:", session.user.id)
+      // Fetch profile data for authenticated user
       let { data: profileData, error } = await supabase
         .from('profiles')
         .select()  // List specific columns

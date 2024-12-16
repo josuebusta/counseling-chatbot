@@ -11,6 +11,8 @@ services:
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     networks:
       - app-network
+    env_file:
+      - .env
 
   fastapi-backend:
     image: amarisg/counselling-chatbot-fastapi-backend

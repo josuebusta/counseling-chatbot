@@ -25,7 +25,7 @@ async def assess_hiv_risk(websocket: WebSocket) -> str:
         'multiple_partners': "Have you had multiple sexual partners in the past 12 months? (Yes/No): ",
         'iv_drug_use': "Have you used intravenous drugs or shared needles? (Yes/No): ",
         'partner_hiv_positive/unknown': "Do you have a sexual partner who is HIV positive/ has unknown HIV status? (Yes/No): ",
-        'std_history': "Have you been diagnosed with a sexually transmitted disease (STD) in the past 12 months? (Yes/No): ",
+        'std_history': "Have you been diagnosed with a sexually transmitted disease (STD) in the past 12 months? (Yes/No): "
     }
 
     prompt = """It's completely understandable to feel concerned about your health, 
