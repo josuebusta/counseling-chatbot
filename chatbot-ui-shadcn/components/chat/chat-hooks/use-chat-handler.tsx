@@ -9,7 +9,7 @@ import { buildFinalMessages } from "@/lib/build-prompt"
 import { Tables } from "@/supabase/types"
 import { ChatMessage, ChatPayload, LLMID, ModelProvider } from "@/types"
 import { useRouter } from "next/navigation"
-import { useContext, useEffect, useRef } from "react"
+import { useContext, useEffect, useRef, useState } from "react"
 import { LLM_LIST } from "../../../lib/models/llm/llm-list"
 import {
   createTempMessages,
@@ -70,6 +70,28 @@ export const useChatHandler = () => {
   } = useContext(ChatbotUIContext)
 
   const chatInputRef = useRef<HTMLTextAreaElement>(null)
+  
+  const [isInitialMessageSent, setIsInitialMessageSent] = useState(false);
+  const messageAlreadySent = useRef(false);
+
+//   // Modified useEffect
+//   useEffect(() => {
+//   const autoSendHello = async () => {
+//     try {
+//       if (chatSettings && selectedWorkspace && !isInitialMessageSent && 
+//           !chatMessages.some(msg => msg.message.content === "Hello!")) {
+//         console.log("Auto-sending hello message");
+//         await handleSendMessage("Hello!", [], false);
+//         setIsInitialMessageSent(true);
+//       }
+//     } catch (error) {
+//       console.error("Error auto-sending hello:", error);
+//     }
+//   };
+
+//   autoSendHello();
+// }, [chatSettings, selectedWorkspace, isInitialMessageSent, chatMessages]);
+
 
   useEffect(() => {
     if (!isPromptPickerOpen || !isFilePickerOpen || !isToolPickerOpen) {
@@ -404,6 +426,8 @@ export const useChatHandler = () => {
 // }
 
 
+
+
 const handleSendMessage = async (
     messageContent: string,
     chatMessages: ChatMessage[],
@@ -411,6 +435,11 @@ const handleSendMessage = async (
   ) => {
     const startingInput = messageContent
     console.log("handleSendMessage")
+
+    if (chatMessages.some(msg => msg.message.content === messageContent)) {
+      console.log("Message already exists, skipping send");
+      return;
+    }
 
     try {
       console.log("handleSendMessage3")

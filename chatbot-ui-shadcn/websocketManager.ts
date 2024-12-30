@@ -200,6 +200,7 @@ export class WebSocketManager {
   private pendingMessageResolvers: Map<string, (value: any) => void> = new Map();
 
   private constructor() {}
+  public messageProcessing: boolean = false;
 
   public static getInstance(): WebSocketManager {
     if (!WebSocketManager.instance) {
@@ -259,10 +260,7 @@ export class WebSocketManager {
       type: 'user_id',
       content: this.userId
     }));
-    // this.socket.send(JSON.stringify({
-    //   type: 'initial message',
-    //   content: "hi"
-    // }));
+
   }
   
 
@@ -285,21 +283,11 @@ export class WebSocketManager {
           this.processQueue();
         }
       };
+    
 
-      this.socket.onmessage = (event) => {
-        try {
-          const response = JSON.parse(event.data);
-          if (response.type !== 'connection_established') {
-            const resolver = this.pendingMessageResolvers.get(response.messageId);
-            if (resolver) {
-              resolver(response);
-              this.pendingMessageResolvers.delete(response.messageId);
-            }
-          }
-        } catch (e) {
-          console.error('Error handling message:', e);
-        }
-      };
+
+        this.initializationPromise = null;
+
 
       this.socket.onclose = () => {
         console.log("WebSocket connection closed");
@@ -354,6 +342,7 @@ export class WebSocketManager {
     });
   }
 
+
   private sendMessage(message: any): void {
     if (!this.socket) {
       this.messageQueue.push(message);
@@ -384,4 +373,6 @@ export class WebSocketManager {
   }
 }
 
+    
+    
 export const wsManager = WebSocketManager.getInstance();

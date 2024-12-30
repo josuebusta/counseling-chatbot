@@ -13,6 +13,9 @@ import { LLM_LIST_MAP } from "@/lib/models/llm/llm-list"
 import { supabase } from "@/lib/supabase/browser-client"
 import { cn } from "@/lib/utils"
 import { OpenRouterLLM } from "@/types"
+import { useChatHandler } from "../chat/chat-hooks/use-chat-handler"
+
+
 
 import {
   IconCircleCheckFilled,
@@ -103,6 +106,7 @@ useEffect(() => {
       }
       await wsManager.initializeWithUserId(session.user.id);
 
+
       // // Initialize WebSocket manager with user ID
       // wsManager.initializeWithUserId(session.user.id);
       // const ws = wsManager.getSocket();
@@ -173,6 +177,33 @@ useEffect(() => {
       subscription?.unsubscribe()
     }
   }, [setProfile, router])
+
+
+    const [isInitialMessageSent, setIsInitialMessageSent] = useState(false);
+
+        // Modified useEffect
+        // Add this near your other useEffects
+
+  const { handleSendMessage } = useChatHandler();
+  const { chatSettings, selectedWorkspace } = useContext(ChatbotUIContext);
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+
+//   useEffect(() => {
+//   const autoSendHello = async () => {
+//     if (!chatSettings || !selectedWorkspace || hasInitialized) return
+    
+//     try {
+//       console.log("Auto-sending hello message")
+//       await handleSendMessage("Hello!", [], false)
+//       setHasInitialized(true)
+//     } catch (error) {
+//       console.error("Error auto-sending hello:", error)
+//     }
+//   }
+
+//   autoSendHello()
+// }, [chatSettings, selectedWorkspace, hasInitialized])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()

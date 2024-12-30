@@ -11,6 +11,8 @@ export const ChatSecondaryButtons: FC<ChatSecondaryButtonsProps> = ({}) => {
 
   const { handleNewChat } = useChatHandler()
 
+  
+
   return (
     <>
       {selectedChat && (

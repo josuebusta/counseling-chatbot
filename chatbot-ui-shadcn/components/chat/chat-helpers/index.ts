@@ -238,37 +238,48 @@ export const handleHostedChat = async (
   };
   console.log("Request body:", requestBody);
 
+  // return new Promise((resolve, reject) => {
+  //   // Ensure WebSocket is initialized
+  //   const ws = wsManager.getSocket();
+  //   console.log("initial message sent 4");
+
+  // ADDED BELOW
   return new Promise((resolve, reject) => {
-    // Ensure WebSocket is initialized
     const ws = wsManager.getSocket();
-    console.log("initial message sent 4");
 
-    if (ws.readyState === WebSocket.OPEN) {
-      console.log("initial message sent 2");
-
-      ws.send(JSON.stringify({
-            type: 'message',
-            content: requestBody.messages[requestBody.messages.length - 1].content
-        }));
+    // If this is the first connection, just establish the socket
+    if (!wsManager.messageProcessing && payload.chatMessages.length === 0) {
       setIsGenerating(true);
-    } else {
-      
-      ws.onopen = () => {
-        console.log("initial message sent 1");
-
-        // Send chat message as a structured message
-        ws.send(JSON.stringify({
-            type: 'message',
-            content: requestBody.messages[requestBody.messages.length - 1].content
-        }));
-          setIsGenerating(true);
-      };
+      ws.send(JSON.stringify({
+      type: 'message',
+      messageId: Math.random().toString(36).substring(7),
+      content: "hi"
+  }));
+      // The backend will automatically send the initial message
+      return;
     }
+
+  // ADDED ABOVE
+
+
+    if (ws.readyState === WebSocket.OPEN && !wsManager.messageProcessing) {
+  console.log("Sending message");
+  ws.send(JSON.stringify({
+      type: 'message',
+      messageId: Math.random().toString(36).substring(7),
+      content: requestBody.messages[requestBody.messages.length - 1].content
+  }));
+  setIsGenerating(true);
+} else {
+  console.log("Socket not ready or message processing in progress");
+}
+
 
     ws.onmessage = (event) => {
       const response = event.data;
       console.log("response:", response);
 
+      if (!response.includes('patient:')) {
       // Handle the response from your custom backend
       processResponse(
         response,
@@ -286,6 +297,7 @@ export const handleHostedChat = async (
 
       // Resolve the promise with the response (or a part of it)
       resolve(response.message); // Adjust based on the structure of the response
+      }
     };
 
     ws.onerror = (error) => {
@@ -564,4 +576,3 @@ export const handleCreateMessages = async (
     setChatMessages(finalChatMessages)
   }
 }
-

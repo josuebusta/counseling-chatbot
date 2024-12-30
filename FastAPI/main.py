@@ -111,10 +111,10 @@ class ConnectionManager:
             }
             
             logger.info(f"Client connected: {user_id}")
-            await websocket.send_text(json.dumps({
-                "type": "connection_established",
-                "content": "WebSocket connection established"
-            }))
+            # await websocket.send_text(json.dumps({
+            #     "type": "connection_established",
+            #     "content": "WebSocket connection established"
+            # }))
 
     def set_initialized(self, user_id: str, workflow_manager):
         if user_id in self._active_connections:
@@ -169,10 +169,10 @@ async def websocket_endpoint(websocket: WebSocket):
             # First message must be user_id
             if not connection_initialized:
                 if message_type != "user_id":
-                    await websocket.send_text(json.dumps({
-                        "type": "error",
-                        "content": "First message must be user_id"
-                    }))
+                    # await websocket.send_text(json.dumps({
+                    #     "type": "error",
+                    #     "content": "First message must be user_id"
+                    # }))
                 
                     continue
                 
@@ -191,10 +191,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 manager.set_initialized(user_id, workflow_manager)
                 connection_initialized = True
                 
-                await websocket.send_text(json.dumps({
-                    "type": "connection_established",
-                    "content": "WebSocket connection established"
-                }))
+                # await websocket.send_text(json.dumps({
+                #     "type": "connection_established",
+                #     "content": "WebSocket connection established"
+                # }))
                 continue
             
             # Handle normal messages
@@ -212,11 +212,11 @@ async def websocket_endpoint(websocket: WebSocket):
                     }))
                 except Exception as e:
                     logger.error(f"Error processing message: {str(e)}")
-                    await websocket.send_text(json.dumps({
-                        "type": "error",
-                        "messageId": message_id,
-                        "content": f"Error processing message: {str(e)}"
-                    }))
+                    # await websocket.send_text(json.dumps({
+                    #     "type": "error",
+                    #     "messageId": message_id,
+                    #     "content": f"Error processing message: {str(e)}"
+                    # }))
     
     except WebSocketDisconnect:
         if user_id:

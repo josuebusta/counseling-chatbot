@@ -97,10 +97,10 @@ class HIVPrEPCounselor:
             websocket=self.websocket
         )
 
-        # After the user says hi, respond:
-        # Hello, my name is CHIA. It's nice to meet you. What's your name? (Doesn't have to be your real name)
-        counselor_system_message = """You are CHIA, an HIV PrEP counselor. 
         
+        counselor_system_message = """You are CHIA, an HIV PrEP counselor. 
+        After the user says hi, respond (make sure to take into account if you already have their name):
+        Hello, my name is CHIA. It's nice to meet you. What's your name? (Doesn't have to be your real name)
 
         When the user has provided their name:
         1. Explaining that everything is confidential and you won't judge
@@ -343,19 +343,42 @@ class HIVPrEPCounselor:
             return self.group_chat.messages[-1]["content"]
         return "No messages found."
 
-    async def initiate_chat(self, user_input: str):
-        self.update_history(self.agents[2], user_input, self.agents[2])
-        await self.agents[2].a_initiate_chat(
-            recipient=self.manager,
-            message=user_input,
-            websocket=self.websocket,
-            system_message="""Guide natural conversation flow, letting CHIA lead when unsure.
-            For HIV/PrEP questions, consult FAQ agent then have CHIA respond conversationally.
-            For casual greetings, respond warmly without using RAG.
-            For HIV risk assessment, use the assessment function.
-            For provider searches, use the provider function.
-            Always use updated terminology (sex instead of unprotected sex, STI instead of STD).""",
-        )
+    # async def initiate_chat(self, user_input: str):
+    #     self.update_history(self.agents[2], user_input, self.agents[2])
+    #     await self.agents[2].a_initiate_chat(
+    #         recipient=self.manager,
+    #         message=user_input,
+    #         websocket=self.websocket,
+    #         system_message="""Guide natural conversation flow, letting CHIA lead when unsure.
+    #         For HIV/PrEP questions, consult FAQ agent then have CHIA respond conversationally.
+    #         For casual greetings, respond warmly without using RAG.
+    #         For HIV risk assessment, use the assessment function.
+    #         For provider searches, use the provider function.
+    #         Always use updated terminology (sex instead of unprotected sex, STI instead of STD).""",
+    #     )
+    async def initiate_chat(self, user_input: str = None):
+        if not self.group_chat.messages:  # If this is the first message
+            initial_message = "Hello, my name is CHIA. It's nice to meet you. What's your name? (Doesn't have to be your real name)"
+            
+            # First send directly to websocket for immediate display
+            if self.websocket:
+                await self.websocket.send_text(f"CHIA: {initial_message}")
+            
+            # Then properly initiate the chat through the manager
+            await self.manager.a_initiate_chat(
+                recipient=self.agents[2],  # patient
+                message=initial_message,
+                websocket=self.websocket
+            )
+        else:
+            # Handle subsequent messages
+            self.update_history(self.agents[2], user_input, self.agents[2])
+            await self.agents[2].a_initiate_chat(
+                recipient=self.manager,
+                message=user_input,
+                websocket=self.websocket,
+                system_message="""Guide natural conversation flow...""",
+            )
 
     def get_history(self):
         return self.agent_history
