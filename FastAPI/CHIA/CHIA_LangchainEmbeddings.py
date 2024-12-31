@@ -46,6 +46,7 @@ class HIVPrEPCounselor:
         self.api_key = os.getenv('OPENAI_API_KEY')
         self.websocket = websocket
         print("websocket is!!", self.websocket)
+        self.websocket.send_text("Hello, world!")
 
         if not self.api_key:
             raise ValueError("API key not found. Please set OPENAI_API_KEY in your .env file.")
@@ -358,16 +359,16 @@ class HIVPrEPCounselor:
     #     )
     async def initiate_chat(self, user_input: str = None):
         if not self.group_chat.messages:  # If this is the first message
-            initial_message = "Hello, my name is CHIA. It's nice to meet you. What's your name? (Doesn't have to be your real name)"
+            # initial_message = "Hello, my name is CHIA. It's nice to meet you. What's your name? (Doesn't have to be your real name)"
             
-            # First send directly to websocket for immediate display
-            if self.websocket:
-                await self.websocket.send_text(f"CHIA: {initial_message}")
+            # # First send directly to websocket for immediate display
+            # if self.websocket:
+            #     await self.websocket.send_text(f"CHIA: {initial_message}")
             
             # Then properly initiate the chat through the manager
             await self.manager.a_initiate_chat(
                 recipient=self.agents[2],  # patient
-                message=initial_message,
+                message="hey!!",
                 websocket=self.websocket
             )
         else:

@@ -8,70 +8,6 @@ import json
 from fastapi.middleware.cors import CORSMiddleware
 
 
-# app = FastAPI()
-
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["*"],  # Add your frontend URL
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
-
-# @app.get("/")
-# def read_root():
-#     return {"message": "Hello World"}
-
-
-# @app.websocket("/ws")
-# async def websocket_endpoint(websocket: WebSocket):
-#     await websocket.accept()
-#     workflow_manager = None
-    
-#     try:
-#         # Wait for user_id first
-#         initial_data = await websocket.receive_text()
-#         # try:
-#         parsed_initial = json.loads(initial_data)
-#         print(f"Parsed initial data type: {parsed_initial.get('type')}")
-#         print(f"Parsed initial data content: {parsed_initial.get('content')}")
-#         if parsed_initial.get('type') == 'user_id':
-#             user_id = parsed_initial['content']
-#             workflow_manager = HIVPrEPCounselor(websocket, user_id)
-        
-#         elif parsed_initial.get('type') == 'message':
-#             # Process the message
-#             await workflow_manager.initiate_chat(parsed_initial.get('content'))
-#             response = workflow_manager.get_latest_response()
-
-#             if response is not None:
-#                 if isinstance(response, Mapping):
-#                     message = json.dumps(response)
-#                     await websocket.send_text(message)
-#                 elif isinstance(response, (str, bytes, bytearray, memoryview)):
-#                     await websocket.send_text(response)
-#                 else:
-#                     print(f"Unsupported message type: {type(response)}")
-#             else:
-#                 print("Response is None; nothing to send.")
-
-#         else:
-#             print("Invalid message type")
-
-#     except WebSocketDisconnect:
-#         print("Client disconnected")
-#     except Exception as e:
-#         print(f"Connection error: {e}")
-#         try:
-#             await websocket.send_text(json.dumps({
-#                 "error": f"Server error: {str(e)}"
-#             }))
-#         except:
-#             pass
-#     finally:
-#         if workflow_manager:
-#             # Add any cleanup code for workflow_manager here
-#             pass
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, Dict
@@ -120,6 +56,7 @@ class ConnectionManager:
         if user_id in self._active_connections:
             self._active_connections[user_id]["workflow_manager"] = workflow_manager
             self._active_connections[user_id]["initialized"] = True
+
             logger.info(f"Initialized workflow manager for user: {user_id}")
 
     def is_initialized(self, user_id: str) -> bool:
@@ -161,7 +98,11 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             data = await websocket.receive_text()
             parsed_data = json.loads(data)
+            await websocket.send_text("Heyo")
+            print("sent")
             print(f"parsed_data: {parsed_data}")
+            
+            
             message_type = parsed_data.get('type')
             content = parsed_data.get('content')
             message_id = parsed_data.get('messageId')

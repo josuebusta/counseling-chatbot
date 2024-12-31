@@ -162,6 +162,7 @@ useEffect(() => {
       async (event, session) => {
         console.log("Auth state changed:", event)
         if (event === 'SIGNED_IN' && session?.user?.id) {
+          console.log("Signing in")
           initializeProfile()
         } else if (event === 'SIGNED_OUT') {
           if (mounted) {
