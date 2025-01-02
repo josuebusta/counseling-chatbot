@@ -358,28 +358,28 @@ class HIVPrEPCounselor:
     #         Always use updated terminology (sex instead of unprotected sex, STI instead of STD).""",
     #     )
     async def initiate_chat(self, user_input: str = None):
-        if not self.group_chat.messages:  # If this is the first message
-            # initial_message = "Hello, my name is CHIA. It's nice to meet you. What's your name? (Doesn't have to be your real name)"
+        # if not self.group_chat.messages:  # If this is the first message
+        #     # initial_message = "Hello, my name is CHIA. It's nice to meet you. What's your name? (Doesn't have to be your real name)"
             
-            # # First send directly to websocket for immediate display
-            # if self.websocket:
-            #     await self.websocket.send_text(f"CHIA: {initial_message}")
+        #     # # First send directly to websocket for immediate display
+        #     # if self.websocket:
+        #     #     await self.websocket.send_text(f"CHIA: {initial_message}")
             
-            # Then properly initiate the chat through the manager
-            await self.manager.a_initiate_chat(
-                recipient=self.agents[2],  # patient
-                message="hey!!",
-                websocket=self.websocket
-            )
-        else:
-            # Handle subsequent messages
-            self.update_history(self.agents[2], user_input, self.agents[2])
-            await self.agents[2].a_initiate_chat(
-                recipient=self.manager,
-                message=user_input,
-                websocket=self.websocket,
-                system_message="""Guide natural conversation flow...""",
-            )
+        #     # Then properly initiate the chat through the manager
+        #     await self.manager.a_initiate_chat(
+        #         recipient=self.agents[2],  # patient
+        #         message="hey!!",
+        #         websocket=self.websocket
+        #     )
+        # else:
+        # Handle subsequent messages
+        self.update_history(self.agents[2], user_input, self.agents[2])
+        await self.agents[2].a_initiate_chat(
+            recipient=self.manager,
+            message=user_input,
+            websocket=self.websocket,
+            system_message="""Guide natural conversation flow...""",
+        )
 
     def get_history(self):
         return self.agent_history
