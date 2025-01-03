@@ -76,23 +76,6 @@ export const useChatHandler = () => {
   const [isInitialMessageSent, setIsInitialMessageSent] = useState(false);
   const messageAlreadySent = useRef(false);
 
-//   // Modified useEffect
-//   useEffect(() => {
-//   const autoSendHello = async () => {
-//     try {
-//       if (chatSettings && selectedWorkspace && !isInitialMessageSent && 
-//           !chatMessages.some(msg => msg.message.content === "Hello!")) {
-//         console.log("Auto-sending hello message");
-//         await handleSendMessage("Hello!", [], false);
-//         setIsInitialMessageSent(true);
-//       }
-//     } catch (error) {
-//       console.error("Error auto-sending hello:", error);
-//     }
-//   };
-
-//   autoSendHello();
-// }, [chatSettings, selectedWorkspace, isInitialMessageSent, chatMessages]);
 
 useEffect(() => {
   const ws = wsManager.getSocket();
@@ -100,8 +83,13 @@ useEffect(() => {
   const handleInitialMessage = async (event: MessageEvent) => {
     const response = event.data;
     console.log("Response received:", response);
+    if (isInitialMessageSent) return;
 
     if (!chatMessages.length) {
+      if (response === "Heyo") {
+
+      
+      
       const tempMessage = {
         message: {
           chat_id: "",
@@ -148,6 +136,8 @@ useEffect(() => {
         setChatImages,
         selectedAssistant
       );
+      setIsInitialMessageSent(true);
+    }
     }
   };
 
@@ -227,19 +217,7 @@ useEffect(() => {
       )
 
       if (allFiles.length > 0) setShowFilesDisplay(true)
-    // } else if (selectedPreset) {
-    //   setChatSettings({
-    //     model: selectedPreset.model as LLMID,
-    //     prompt: selectedPreset.prompt,
-    //     temperature: selectedPreset.temperature,
-    //     contextLength: selectedPreset.context_length,
-    //     includeProfileContext: selectedPreset.include_profile_context,
-    //     includeWorkspaceInstructions:
-    //       selectedPreset.include_workspace_instructions,
-    //     embeddingsProvider: selectedPreset.embeddings_provider as
-    //       | "openai"
-    //       | "local"
-    //   })
+
     } 
     return router.push(`/${selectedWorkspace.id}/chat`)
   }
@@ -255,34 +233,34 @@ useEffect(() => {
   }
 
 
-useEffect(() => {
-    const ws = wsManager.getSocket();
+// useEffect(() => {
+//     const ws = wsManager.getSocket();
     
-    const handleInitialMessage = (event: MessageEvent) => {
-      const response = event.data;
-      console.log("FIRST MESSAGE response", response)
+//     const handleInitialMessage = (event: MessageEvent) => {
+//       const response = event.data;
+//       console.log("FIRST MESSAGE response", response)
 
-      handleCreateMessages(
-        chatMessages,
-        selectedChat!,
-        profile!,
-        LLM_LIST[0],
-        response,
-        response,
-        newMessageImages,
-        false,
-        [],
-        setChatMessages,
-        setChatFileItems,
-        setChatImages,
-        selectedAssistant
-      )
+//       handleCreateMessages(
+//         chatMessages,
+//         selectedChat!,
+//         profile!,
+//         LLM_LIST[0],
+//         response,
+//         response,
+//         newMessageImages,
+//         false,
+//         [],
+//         setChatMessages,
+//         setChatFileItems,
+//         setChatImages,
+//         selectedAssistant
+//       )
       
-    };
+//     };
 
-    ws.addEventListener('message', handleInitialMessage);
-    return () => ws.removeEventListener('message', handleInitialMessage);
-  }, []);
+//     ws.addEventListener('message', handleInitialMessage);
+//     return () => ws.removeEventListener('message', handleInitialMessage);
+//   }, []);
 
 
 
@@ -329,13 +307,6 @@ const handleSendMessage = async (
         ...availableOpenRouterModels
       ].find(llm => llm.modelId === chatSettings?.model)
 
-      // validateChatSettings(
-      //   chatSettings,
-      //   modelData,
-      //   profile,
-      //   selectedWorkspace,
-      //   messageContent
-      // )
 
       console.log("handleSendMessage6")
 
@@ -351,13 +322,6 @@ const handleSendMessage = async (
       ) {
         setToolInUse("retrieval")
 
-        // retrievedFileItems = await handleRetrieval(
-        //   userInput,
-        //   newMessageFiles,
-        //   chatFiles,
-        //   chatSettings!.embeddingsProvider,
-        //   sourceCount
-        // )
       }
 
       const { tempUserChatMessage, tempAssistantChatMessage } =
@@ -385,75 +349,22 @@ const handleSendMessage = async (
       let generatedText = ""
       console.log("selectedTools")
       console.log("selectedTools", selectedTools)
-      if (selectedTools.length > 0) {
-        console.log("handleSendMessage7")
-        console.log("passess through")
-        setToolInUse("Tools")
-
-        // const formattedMessages = await buildFinalMessages(
-        //   payload,
-        //   profile!,
-        //   chatImages
-        // )
-
-        const response = await fetch("/api/chat/tools", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            chatSettings: payload.chatSettings,
-            messages: "",
-            selectedTools
-          })
-        })
-
-        setToolInUse("none")
-
-        generatedText = await processResponse(
-          response.toString(),
-          isRegeneration
-            ? payload.chatMessages[payload.chatMessages.length - 1]
-            : tempAssistantChatMessage,
-          true,
-          newAbortController,
-          setFirstTokenReceived,
-          setChatMessages,
-          setToolInUse
-        )
-      } else {
-        if (modelData!.provider === "ollama") {
-          console.log("handleSendMessage8")
-          generatedText = await handleLocalChat(
-            payload,
-            profile!,
-            chatSettings!,
-            tempAssistantChatMessage,
-            isRegeneration,
-            newAbortController,
-            setIsGenerating,
-            setFirstTokenReceived,
-            setChatMessages,
-            setToolInUse
-          )
-        } else {
-          console.log("handleSendMessage9")
-          generatedText = await handleHostedChat(
-            payload,
-            profile!,
-            modelData!,
-            tempAssistantChatMessage,
-            isRegeneration,
-            newAbortController,
-            newMessageImages,
-            chatImages,
-            setIsGenerating,
-            setFirstTokenReceived,
-            setChatMessages,
-            setToolInUse
-          )
-        }
-      }
+      console.log("handleSendMessage9")
+      generatedText = await handleHostedChat(
+        payload,
+        profile!,
+        modelData!,
+        tempAssistantChatMessage,
+        isRegeneration,
+        newAbortController,
+        newMessageImages,
+        chatImages,
+        setIsGenerating,
+        setFirstTokenReceived,
+        setChatMessages,
+        setToolInUse
+      )
+  
 
       if (!currentChat) {
         currentChat = await handleCreateChat(
