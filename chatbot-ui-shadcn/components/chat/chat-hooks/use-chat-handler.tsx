@@ -78,15 +78,16 @@ export const useChatHandler = () => {
 
 
 useEffect(() => {
-  const ws = wsManager.getSocket();
+  // const ws = wsManager.getSocket();
   
-  const handleInitialMessage = async (event: MessageEvent) => {
-    const response = event.data;
+  const handleInitialMessage = async () => {
+    // const response = event.data;
+    const response = "Hello, my name is CHIA. It's nice to meet you. What's your name?"
     console.log("Response received:", response);
     if (isInitialMessageSent) return;
 
     if (!chatMessages.length) {
-      if (response === "Heyo") {
+      if (response === "Hello, my name is CHIA. It's nice to meet you. What's your name?") {
 
       
       
@@ -141,8 +142,9 @@ useEffect(() => {
     }
   };
 
-  ws.addEventListener('message', handleInitialMessage);
-  return () => ws.removeEventListener('message', handleInitialMessage);
+  // ws.addEventListener('message', handleInitialMessage);
+  // return () => ws.removeEventListener('message', handleInitialMessage);
+  handleInitialMessage()
 }, []);
 
   useEffect(() => {

@@ -93,14 +93,18 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     user_id = None
     connection_initialized = False
+    initial_message_sent = False
     
     try:
         while True:
             data = await websocket.receive_text()
             parsed_data = json.loads(data)
-            await websocket.send_text("Heyo")
-            print("sent")
-            print(f"parsed_data: {parsed_data}")
+            if not initial_message_sent:
+                # await websocket.send_text("Heyo")
+                # initial_message_sent = True
+                print("sent")
+                print(f"parsed_data: {parsed_data}")
+                initial_message_sent = True
             
             
             message_type = parsed_data.get('type')

@@ -19,49 +19,49 @@ from typing import Dict
 from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
 from fastapi import WebSocket
 
-async def assess_hiv_risk(websocket: WebSocket) -> str:
-    questions = {
-        'sex_with_men': "Have you had unprotected sexual intercourse with men in the past 3 months? (Yes/No): ",
-        'multiple_partners': "Have you had multiple sexual partners in the past 12 months? (Yes/No): ",
-        'iv_drug_use': "Have you used intravenous drugs or shared needles? (Yes/No): ",
-        'partner_hiv_positive/unknown': "Do you have a sexual partner who is HIV positive/ has unknown HIV status? (Yes/No): ",
-        'std_history': "Have you been diagnosed with a sexually transmitted disease (STD) in the past 12 months? (Yes/No): "
-    }
+# async def assess_hiv_risk(websocket: WebSocket) -> str:
+#     questions = {
+#         'sex_with_men': "Have you had unprotected sexual intercourse with men in the past 3 months? (Yes/No): ",
+#         'multiple_partners': "Have you had multiple sexual partners in the past 12 months? (Yes/No): ",
+#         'iv_drug_use': "Have you used intravenous drugs or shared needles? (Yes/No): ",
+#         'partner_hiv_positive/unknown': "Do you have a sexual partner who is HIV positive/ has unknown HIV status? (Yes/No): ",
+#         'std_history': "Have you been diagnosed with a sexually transmitted disease (STD) in the past 12 months? (Yes/No): "
+#     }
 
-    prompt = """It's completely understandable to feel concerned about your health, 
-    and I'm here to help you through this. To assess your HIV risk, I'll need to 
-    ask you a series of questions. Please remember that this is a safe space, 
-    and your feelings and experiences are important. Shall we begin? I'll be asking you some questions one at a time. \n\n"""
+#     prompt = """It's completely understandable to feel concerned about your health, 
+#     and I'm here to help you through this. To assess your HIV risk, I'll need to 
+#     ask you a series of questions. Please remember that this is a safe space, 
+#     and your feelings and experiences are important. Shall we begin? I'll be asking you some questions one at a time. \n\n"""
 
-    high_risk = False
-    responses = {}
-    result = ""
+#     high_risk = False
+#     responses = {}
+#     result = ""
     
-    # await websocket.send_text("HIV Risk Assessment Questionnaire\n")
+#     # await websocket.send_text("HIV Risk Assessment Questionnaire\n")
 
-    for key, question in questions.items():
-        # Send the question to the client
-        if key == "sex_with_men": # when it's the first question, send the prompt first
-            await websocket.send_text(prompt + question)
-        else:
-            await websocket.send_text(question)
-        # Receive the user's response through WebSocket
-        response = await websocket.receive_text()
-        response = response.strip().lower().strip('"')
+#     for key, question in questions.items():
+#         # Send the question to the client
+#         if key == "sex_with_men": # when it's the first question, send the prompt first
+#             await websocket.send_text(prompt + question)
+#         else:
+#             await websocket.send_text(question)
+#         # Receive the user's response through WebSocket
+#         response = await websocket.receive_text()
+#         response = response.strip().lower().strip('"')
 
-        responses[key] = response
-        if response == "yes":
-            high_risk = True
-            print("high_risk", high_risk)
+#         responses[key] = response
+#         if response == "yes":
+#             high_risk = True
+#             print("high_risk", high_risk)
 
-    # Send the assessment result based on the responses
+#     # Send the assessment result based on the responses
     
-    if high_risk:
-        result = "The individual is at a higher risk for HIV. It is recommended to consider taking PrEP to protect from HIV infection."
-    else:
-        result = "The individual is at a lower risk for HIV. However, continue to practice safe behaviors and consult a healthcare professional for personalized advice."
-    print("result", result)
-    return result
+#     if high_risk:
+#         result = "The individual is at a higher risk for HIV. It is recommended to consider taking PrEP to protect from HIV infection."
+#     else:
+#         result = "The individual is at a lower risk for HIV. However, continue to practice safe behaviors and consult a healthcare professional for personalized advice."
+#     print("result", result)
+#     return result
 
 
 

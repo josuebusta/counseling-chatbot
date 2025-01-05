@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from typing import List
 import os
 from autogen.agentchat.contrib.capabilities.teachability import Teachability
-from .functions import assess_hiv_risk, search_provider, assess_ttm_stage_single_question
+from .functions import search_provider, assess_ttm_stage_single_question
 
 
 # CONFIGURATION 
@@ -46,7 +46,7 @@ class HIVPrEPCounselor:
         self.api_key = os.getenv('OPENAI_API_KEY')
         self.websocket = websocket
         print("websocket is!!", self.websocket)
-        self.websocket.send_text("Hello, world!")
+  
 
         if not self.api_key:
             raise ValueError("API key not found. Please set OPENAI_API_KEY in your .env file.")
@@ -98,11 +98,11 @@ class HIVPrEPCounselor:
             websocket=self.websocket
         )
 
-        
-        counselor_system_message = """You are CHIA, an HIV PrEP counselor. 
-        After the user says hi, respond (make sure to take into account if you already have their name):
-        Hello, my name is CHIA. It's nice to meet you. What's your name? (Doesn't have to be your real name)
+        # After the user says hi, respond (make sure to take into account if you already have their name):
+        # Hello, my name is CHIA. It's nice to meet you. What's your name? (Doesn't have to be your real name)
 
+        counselor_system_message = """You are CHIA, an HIV PrEP counselor. 
+        
         When the user has provided their name:
         1. Explaining that everything is confidential and you won't judge
         2. Use this formulation: 
@@ -242,11 +242,11 @@ class HIVPrEPCounselor:
         def answer_question_wrapper(user_question: str) -> str:
             return self.answer_question(user_question)
         
-        async def assess_hiv_risk_wrapper() -> str:
-            response = await assess_hiv_risk(self.websocket)
-            response = response.replace("unprotected sexual intercourse", "sex")
-            response = response.replace("STD", "STI")
-            return response
+        # async def assess_hiv_risk_wrapper() -> str:
+        #     response = await assess_hiv_risk(self.websocket)
+        #     response = response.replace("unprotected sexual intercourse", "sex")
+        #     response = response.replace("STD", "STI")
+        #     return response
         
         def search_provider_wrapper(zip_code: str) -> str:
             return search_provider(zip_code)
@@ -269,14 +269,6 @@ class HIVPrEPCounselor:
             name="answer_question",
             description="Retrieves embedding data content to answer user's question.",
         )
-
-        # autogen.agentchat.register_function(
-        #     assess_hiv_risk_wrapper,
-        #     caller=assessment_bot,
-        #     executor=counselor,
-        #     name="assess_hiv_risk",
-        #     description="Executes HIV risk assessment using updated terminology and motivational interviewing.",
-        # )
 
         autogen.agentchat.register_function(
             search_provider_wrapper,
@@ -378,7 +370,7 @@ class HIVPrEPCounselor:
             recipient=self.manager,
             message=user_input,
             websocket=self.websocket,
-            system_message="""Guide natural conversation flow...""",
+            system_message="""Guide natural conversation flow. There should only be one agent answering the user's question.""",
         )
 
     def get_history(self):
