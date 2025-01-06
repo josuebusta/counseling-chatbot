@@ -57,33 +57,6 @@ export const validateChatSettings = (
   }
 }
 
-// export const handleRetrieval = async (
-//   userInput: string,
-//   newMessageFiles: ChatFile[],
-//   chatFiles: ChatFile[],
-//   embeddingsProvider: "openai" | "local",
-//   sourceCount: number
-// ) => {
-//   const response = await fetch("/api/retrieval/retrieve", {
-//     method: "POST",
-//     body: JSON.stringify({
-//       userInput,
-//       fileIds: [...newMessageFiles, ...chatFiles].map(file => file.id),
-//       embeddingsProvider,
-//       sourceCount
-//     })
-//   })
-
-//   if (!response.ok) {
-//     console.error("Error retrieving:", response)
-//   }
-
-//   const { results } = (await response.json()) as {
-//     results: Tables<"file_items">[]
-//   }
-
-//   return results
-// }
 
 export const createTempMessages = (
   messageContent: string,
@@ -150,56 +123,6 @@ export const createTempMessages = (
   }
 }
 
-export const handleLocalChat = async (
-  payload: ChatPayload,
-  profile: Tables<"profiles">,
-  chatSettings: ChatSettings,
-  tempAssistantMessage: ChatMessage,
-  isRegeneration: boolean,
-  newAbortController: AbortController,
-  setIsGenerating: React.Dispatch<React.SetStateAction<boolean>>,
-  setFirstTokenReceived: React.Dispatch<React.SetStateAction<boolean>>,
-  setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
-  setToolInUse: React.Dispatch<React.SetStateAction<string>>
-) => {
-  const formattedMessages = await buildFinalMessages(payload, profile, []);
-
-  const response = await fetchChatResponse(
-    process.env.NEXT_PUBLIC_OLLAMA_URL + "/api/chat",
-    {
-      model: chatSettings.model,
-      messages: formattedMessages,
-      options: {
-        temperature: payload.chatSettings.temperature,
-      },
-    },
-    false,
-    newAbortController,
-    setIsGenerating,
-    setChatMessages
-  );
-
-  // Read the response stream and convert it to a string
-  let responseText = "";
-  if (response.body) {
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    const streamResult = await reader.read();
-    responseText = decoder.decode(streamResult.value, { stream: true });
-  }
-
-  return await processResponse(
-    responseText, // pass the decoded string instead of the stream
-    isRegeneration
-      ? payload.chatMessages[payload.chatMessages.length - 1]
-      : tempAssistantMessage,
-    false,
-    newAbortController,
-    setFirstTokenReceived,
-    setChatMessages,
-    setToolInUse
-  );
-};
 
 
 export const handleHostedChat = async (
@@ -238,26 +161,9 @@ export const handleHostedChat = async (
   };
   console.log("Request body:", requestBody);
 
-  // return new Promise((resolve, reject) => {
-  //   // Ensure WebSocket is initialized
-  //   const ws = wsManager.getSocket();
-  //   console.log("initial message sent 4");
 
-  // ADDED BELOW
   return new Promise((resolve, reject) => {
     const ws = wsManager.getSocket();
-
-    // If this is the first connection, just establish the socket
-    if (!wsManager.messageProcessing && payload.chatMessages.length === 0) {
-      setIsGenerating(true);
-      ws.send(JSON.stringify({
-      type: 'message',
-      messageId: Math.random().toString(36).substring(7),
-      content: "hi"
-  }));
-      // The backend will automatically send the initial message
-      return;
-    }
 
   // ADDED ABOVE
 
@@ -296,7 +202,7 @@ export const handleHostedChat = async (
       setIsGenerating(false); // Stop the loading indicator once the response is received
 
       // Resolve the promise with the response (or a part of it)
-      resolve(response.message); // Adjust based on the structure of the response
+      resolve(response); 
       }
     };
 
@@ -421,6 +327,20 @@ export const handleCreateChat = async (
   setChats: React.Dispatch<React.SetStateAction<Tables<"chats">[]>>,
   setChatFiles: React.Dispatch<React.SetStateAction<ChatFile[]>>
 ) => {
+  console.log("createChat1")
+  if (!profile) {
+    console.error("No profile available");
+  }
+  console.log("Checking inputs:", {
+      profile: !!profile,
+      workspace: !!selectedWorkspace,
+      settings: !!chatSettings
+    });
+
+    if (!profile || !selectedWorkspace || !chatSettings) {
+      throw new Error("Missing required parameters");
+    }
+
   const createdChat = await createChat({
     user_id: profile.user_id,
     workspace_id: selectedWorkspace.id,
@@ -434,9 +354,12 @@ export const handleCreateChat = async (
     temperature: chatSettings.temperature,
     embeddings_provider: chatSettings.embeddingsProvider
   })
-
+  console.log("createdChat9")
+  console.log("createdChat2", createdChat)
   setSelectedChat(createdChat)
+  console.log("createdChat3", createdChat)
   setChats(chats => [createdChat, ...chats])
+  console.log("createdChat", createdChat)
 
   await createChatFiles(
     newMessageFiles.map(file => ({
@@ -447,6 +370,7 @@ export const handleCreateChat = async (
   )
 
   setChatFiles(prev => [...prev, ...newMessageFiles])
+  console.log("createdChatFiles", newMessageFiles)
 
   return createdChat
 }
@@ -469,6 +393,7 @@ export const handleCreateMessages = async (
   selectedAssistant: Tables<"assistants"> | null
 ) => {
   const finalUserMessage: TablesInsert<"messages"> = {
+    id: uuidv4(),
     chat_id: currentChat.id,
     assistant_id: null,
     user_id: profile.user_id,
@@ -478,8 +403,10 @@ export const handleCreateMessages = async (
     sequence_number: chatMessages.length,
     image_paths: []
   }
+  console.log("finalUserMessage", finalUserMessage)
 
   const finalAssistantMessage: TablesInsert<"messages"> = {
+    id: uuidv4(),
     chat_id: currentChat.id,
     assistant_id: selectedAssistant?.id || null,
     user_id: profile.user_id,
@@ -490,6 +417,7 @@ export const handleCreateMessages = async (
     image_paths: []
   }
 
+  console.log("final assistant message", finalAssistantMessage)
   let finalChatMessages: ChatMessage[] = []
 
   if (isRegeneration) {
@@ -499,17 +427,24 @@ export const handleCreateMessages = async (
       ...lastStartingMessage,
       content: generatedText
     })
-
+    console.log("updatedMessage", updatedMessage)
     chatMessages[chatMessages.length - 1].message = updatedMessage
 
     finalChatMessages = [...chatMessages]
 
     setChatMessages(finalChatMessages)
+    console.log("finalChatMessages", finalChatMessages)
   } else {
+    console.log("finalUserMessage", finalUserMessage)
     const createdMessages = await createMessages([
-      finalUserMessage,
-      finalAssistantMessage
-    ])
+        finalUserMessage, 
+        finalAssistantMessage
+      ]).catch(error => {
+        console.error("Failed to create messages:", error);
+        throw error;
+      });
+    console.log("createdMessages2")
+    console.log("createdMessages", createdMessages)
 
     // Upload each image (stored in newMessageImages) for the user message to message_images bucket
     const uploadPromises = newMessageImages
@@ -572,6 +507,7 @@ export const handleCreateMessages = async (
 
       return [...prevFileItems, ...newFileItems]
     })
+    console.log("finalChatFileItems", finalChatMessages)
 
     setChatMessages(finalChatMessages)
   }

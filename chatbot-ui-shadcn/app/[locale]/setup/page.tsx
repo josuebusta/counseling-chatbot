@@ -277,20 +277,26 @@ export default function SetupPage() {
   useEffect(() => {
     ;(async () => {
       const session = (await supabase.auth.getSession()).data.session
+      console.log("Session1")
 
       if (!session) {
+        console.log("Session2")
         return router.push("/login")
       } else {
+        console.log("Session3")
         const user = session.user
-
+        console.log("User1", user)
         const profile = await getProfileByUserId(user.id)
+        console.log("Profile2", profile)
         setProfile(profile)
         setUsername(profile.username)
 
         if (!profile.has_onboarded) {
+          console.log("Profile3")
           setLoading(false)
         } 
         else {
+          console.log("Profile4")
           // const data = await fetchHostedModels(profile)
 
           // if (!data) return

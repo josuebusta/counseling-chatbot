@@ -16,7 +16,6 @@ import {
   handleCreateChat,
   handleCreateMessages,
   handleHostedChat,
-  handleLocalChat,
   // handleRetrieval,
   processResponse,
   validateChatSettings
@@ -110,33 +109,33 @@ useEffect(() => {
       
       setChatMessages([tempMessage]);
       
-      const newChat = await handleCreateChat(
-        chatSettings!,
-        profile!,
-        selectedWorkspace!,
-        "Initial Chat",
-        selectedAssistant!,
-        [],
-        setSelectedChat,
-        setChats,
-        setChatFiles
-      );
+      // const newChat = await handleCreateChat(
+      //   chatSettings!,
+      //   profile!,
+      //   selectedWorkspace!,
+      //   "Initial Chat",
+      //   selectedAssistant!,
+      //   [],
+      //   setSelectedChat,
+      //   setChats,
+      //   setChatFiles
+      // );
 
-      handleCreateMessages(
-        [tempMessage],
-        newChat,
-        profile!,
-        LLM_LIST[0],
-        response,
-        response,
-        [],
-        false,
-        [],
-        setChatMessages,
-        setChatFileItems,
-        setChatImages,
-        selectedAssistant
-      );
+      // await handleCreateMessages(
+      //   [tempMessage],
+      //   newChat,
+      //   profile!,
+      //   LLM_LIST[0],
+      //   response,
+      //   response,
+      //   [],
+      //   false,
+      //   [],
+      //   setChatMessages,
+      //   setChatFileItems,
+      //   setChatImages,
+      //   selectedAssistant
+      // );
       setIsInitialMessageSent(true);
     }
     }
@@ -348,10 +347,12 @@ const handleSendMessage = async (
         chatFileItems: chatFileItems
       }
 
+      console.log("currentChat", currentChat)
       let generatedText = ""
       console.log("selectedTools")
       console.log("selectedTools", selectedTools)
       console.log("handleSendMessage9")
+      console.log("Profile1")
       generatedText = await handleHostedChat(
         payload,
         profile!,
@@ -365,10 +366,16 @@ const handleSendMessage = async (
         setFirstTokenReceived,
         setChatMessages,
         setToolInUse
-      )
+      ).catch(error => {
+  console.error("handleHostedChat error:", error);
+  throw error; // Re-throw to be caught by the outer try-catch
+});
+console.log("generatedText", generatedText)
+
   
 
       if (!currentChat) {
+        console.log("currentChat0")
         currentChat = await handleCreateChat(
           chatSettings!,
           profile!,
@@ -380,20 +387,33 @@ const handleSendMessage = async (
           setChats,
           setChatFiles
         )
+        console.log("currentChat1", currentChat)
       } else {
+        console.log("currentChat2", currentChat)
         const updatedChat = await updateChat(currentChat.id, {
           updated_at: new Date().toISOString()
         })
-
+        console.log("updatedChat", updatedChat)
         setChats(prevChats => {
           const updatedChats = prevChats.map(prevChat =>
             prevChat.id === updatedChat.id ? updatedChat : prevChat
           )
-
+          console.log("updatedChats", updatedChats)
           return updatedChats
         })
       }
 
+      console.log("handleCreateMessages1")
+
+      console.log("chatMessages", chatMessages)
+      console.log("currentChat", currentChat)
+      console.log("profile", profile)
+      console.log("modelData", modelData)
+      console.log("messageContent", messageContent)
+      console.log("generatedText", generatedText)
+      console.log("newMessageImages", newMessageImages)
+      console.log("isRegeneration", isRegeneration)
+      console.log("retrievedFileItems", retrievedFileItems)
       await handleCreateMessages(
         chatMessages,
         currentChat,

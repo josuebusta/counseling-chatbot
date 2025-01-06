@@ -91,21 +91,27 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
   const [perplexityAPIKey, setPerplexityAPIKey] = useState("")
   const [openrouterAPIKey, setOpenrouterAPIKey] = useState("")
 
+  console.log("Component mounted")
+
   // Initialize profile data
 useEffect(() => {
+  console.log("useEffect1")
   let mounted = true
 
   const initializeProfile = async () => {
     try {
+      console.log("initializeProfile1")
       const { data: { session } } = await supabase.auth.getSession()
+      console.log("initializeProfile2", session)
       
       if (!session?.user?.id) {
         console.log('No authenticated user')
         router.push("/login")
         return
       }
-      await wsManager.initializeWithUserId(session.user.id);
-
+      console.log("initializeProfile3")
+      wsManager.initializeWithUserId(session.user.id); // removed await
+      console.log("initializeProfile4")
 
       // // Initialize WebSocket manager with user ID
       // wsManager.initializeWithUserId(session.user.id);
@@ -114,15 +120,83 @@ useEffect(() => {
       //   type: 'user_id',
       //   content: session.user.id
       // }));
-    
+      console.log("session.user.id", session.user.id)
       console.log("Querying for user ID:", session.user.id)
       // Fetch profile data for authenticated user
-      let { data: profileData, error } = await supabase
-        .from('profiles')
-        .select()  // List specific columns
-        .match({ id: session.user.id })  // Use match instead of eq
-        .maybeSingle() 
+      // let { data: profileData, error } = await supabase
+      //   .from('profiles')
+      //   .select()  // List specific columns
+      //   .match({ id: session.user.id })  // Use match instead of eq
+      //   .maybeSingle() 
+      // console.log("profileData", profileData)
+      // console.log("mounted", mounted)
 
+      console.log("session.user.id", session.user.id)
+console.log("Querying for user ID:", session.user.id)
+
+    // Check if id exists in correct format
+    if (!session.user.id) {
+      console.error("Invalid user ID format");
+      return;
+    }
+
+    // Add explicit error logging
+    let { data: profileData, error } = await supabase
+      .from('profiles')
+      .select('*')  
+      .or(`id.eq.${session.user.id},user_id.eq.${session.user.id}`) 
+      .maybeSingle();
+
+    console.log("Query result:", { profileData, error });
+
+    if (error) {
+      console.error("Supabase query error:", error);
+      return;
+    }
+
+//     if (!profileData) {
+//   console.log("No profile found - creating new profile");
+//   const { data: newProfile, error: createError } = await supabase
+//     .from('profiles')
+//     .insert({
+//       anthropic_api_key: null,
+//       azure_openai_35_turbo_id: null,
+//       azure_openai_45_turbo_id: null,
+//       azure_openai_45_vision_id: null,
+//       azure_openai_api_key: null,
+//       azure_openai_embeddings_id: null,
+//       azure_openai_endpoint: null,
+//       bio: '',
+//       created_at: new Date().toISOString(),
+//       display_name: session.user.email?.split('@')[0] || 'User',
+//       google_gemini_api_key: null,
+//       groq_api_key: null,
+//       has_onboarded: false,
+//       id: session.user.id,
+//       image_path: '',
+//       image_url: '',
+//       mistral_api_key: null,
+//       openai_api_key: null,
+//       openai_organization_id: null,
+//       openrouter_api_key: null,
+//       perplexity_api_key: null,
+//       profile_context: '',
+//       updated_at: new Date().toISOString(),
+//       use_azure_openai: false,
+//       user_id: session.user.id,
+//       username: session.user.email?.split('@')[0] || 'user'
+//     })
+//     .select()
+//     .single();
+
+//   if (createError) {
+//     console.error("Error creating profile:", createError);
+//     return;
+//   }
+
+//   profileData = newProfile;
+// }
+    console.log("Final profileData:", profileData);
       
 
         if (mounted && profileData) {
@@ -156,6 +230,8 @@ useEffect(() => {
     }
 
     initializeProfile()
+
+    console.log("useEffect2")
 
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

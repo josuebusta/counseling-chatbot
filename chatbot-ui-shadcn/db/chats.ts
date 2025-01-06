@@ -11,6 +11,8 @@ export const getChatById = async (chatId: string) => {
   return chat
 }
 
+
+
 export const getChatsByWorkspaceId = async (workspaceId: string) => {
   const { data: chats, error } = await supabase
     .from("chats")
@@ -26,12 +28,13 @@ export const getChatsByWorkspaceId = async (workspaceId: string) => {
 }
 
 export const createChat = async (chat: TablesInsert<"chats">) => {
+  console.log("CC1")
   const { data: createdChat, error } = await supabase
     .from("chats")
     .insert([chat])
     .select("*")
     .single()
-
+  console.log("CC2")
   if (error) {
     throw new Error(error.message)
   }

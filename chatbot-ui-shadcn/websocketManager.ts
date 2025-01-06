@@ -29,34 +29,40 @@ export class WebSocketManager {
     this.initializationPromise = new Promise((resolve) => {
       const ws = this.getSocket();
       
-      const initHandler = (event: MessageEvent) => {
-        try {
-          const response = JSON.parse(event.data);
-          if (response.type === 'connection_established') {
-            this.isInitialized = true;
-            ws.removeEventListener('message', initHandler);
-            resolve();
-          }
-        } catch (e) {
-          console.error('Error parsing init response:', e);
-        }
-      };
+      // const initHandler = (event: MessageEvent) => {
+      //   try {
+      //     const response = JSON.parse(event.data);
+      //     if (response.type === 'connection_established') {
+      //       this.isInitialized = true;
+      //       ws.removeEventListener('message', initHandler);
+      //       resolve();
+      //     }
+      //   } catch (e) {
+      //     console.error('Error parsing init response:', e);
+      //   }
+      // };
 
-      ws.addEventListener('message', initHandler);
+      // ws.addEventListener('message', initHandler);
       
       // Only send user ID if not already initialized
+      console.log("isInitialized")
       if (!this.isInitialized) {
         if (ws.readyState === WebSocket.OPEN) {
+          console.log("readyState")
           this.sendUserId();
         } else {
           const openHandler = () => {
+            console.log("openHandler1")
             this.sendUserId();
             ws.removeEventListener('open', openHandler);
+
           };
           ws.addEventListener('open', openHandler);
+          console.log("openHandler2")
         }
       }
     });
+    console.log("initializationPromise", this.initializationPromise)
 
     return this.initializationPromise;
   }

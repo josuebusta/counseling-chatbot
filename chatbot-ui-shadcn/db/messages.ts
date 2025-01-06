@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase/browser-client"
 import { TablesInsert, TablesUpdate } from "@/supabase/types"
+import { Tables } from "@/supabase/types"
 
 export const getMessageById = async (messageId: string) => {
   const { data: message } = await supabase
@@ -16,10 +17,13 @@ export const getMessageById = async (messageId: string) => {
 }
 
 export const getMessagesByChatId = async (chatId: string) => {
+  console.log("getMessagesByChatId", chatId)
   const { data: messages } = await supabase
     .from("messages")
     .select("*")
     .eq("chat_id", chatId)
+  
+  console.log("messages", messages)
 
   if (!messages) {
     throw new Error("Messages not found")
@@ -42,18 +46,53 @@ export const createMessage = async (message: TablesInsert<"messages">) => {
   return createdMessage
 }
 
-export const createMessages = async (messages: TablesInsert<"messages">[]) => {
-  const { data: createdMessages, error } = await supabase
-    .from("messages")
-    .insert(messages)
-    .select("*")
+// export const createMessages = async (messages: TablesInsert<"messages">[]) => {
+  // const { data: createdMessages, error } = await supabase
+  //   .from("messages")
+  //   .insert(messages)
+  //   .select("*")
+  //   .maybeSingle() 
+//    console.log("createdMessagesfunction", createdMessages)
+//   console.log("createdMessagesfunction2")
 
-  if (error) {
-    throw new Error(error.message)
+//   if (!createdMessages) {
+//   throw new Error("Failed to create messages - no data returned");
+    // }
+    // return createdMessages
+    // }
+
+
+  export const createMessages = async (messages: TablesInsert<"messages">[]) => {
+  if (!messages?.length) {
+    throw new Error("No messages to create")
   }
 
-  return createdMessages
+  messages.forEach(msg => {
+    if (!msg.chat_id || !msg.user_id || !msg.content || !msg.role) {
+      console.error("Invalid message:", msg)
+      throw new Error("Invalid message format") 
+    }
+  })
+
+  const { data, error } = await supabase
+    .from("messages")
+    .insert(messages)
+    .select()
+
+  if (error) {
+    console.error("Supabase error:", error)
+    throw new Error(`Failed to create messages: ${error.message}`)
+  }
+
+  return data
 }
+  
+ 
+  // if (error) {
+  //   throw new Error(`Failed to create messages: ${error.message}`)
+  // }
+
+  
 
 export const updateMessage = async (
   messageId: string,
