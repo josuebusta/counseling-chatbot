@@ -81,12 +81,12 @@ useEffect(() => {
   
   const handleInitialMessage = async () => {
     // const response = event.data;
-    const response = "Hello, my name is CHIA. It's nice to meet you. What's your name?"
+    const response = "Hello, my name is CHIA. It's nice to meet you. What's your name? If you have already given me your name, what can I help you with?" 
     console.log("Response received:", response);
     if (isInitialMessageSent) return;
 
     if (!chatMessages.length) {
-      if (response === "Hello, my name is CHIA. It's nice to meet you. What's your name?") {
+      if (response === "Hello, my name is CHIA. It's nice to meet you. What's your name? If you have already given me your name, what can I help you with?") {
 
       
       
@@ -108,7 +108,7 @@ useEffect(() => {
       };
       
       setChatMessages([tempMessage]);
-      
+    
       // const newChat = await handleCreateChat(
       //   chatSettings!,
       //   profile!,
@@ -232,36 +232,6 @@ useEffect(() => {
       abortController.abort()
     }
   }
-
-
-// useEffect(() => {
-//     const ws = wsManager.getSocket();
-    
-//     const handleInitialMessage = (event: MessageEvent) => {
-//       const response = event.data;
-//       console.log("FIRST MESSAGE response", response)
-
-//       handleCreateMessages(
-//         chatMessages,
-//         selectedChat!,
-//         profile!,
-//         LLM_LIST[0],
-//         response,
-//         response,
-//         newMessageImages,
-//         false,
-//         [],
-//         setChatMessages,
-//         setChatFileItems,
-//         setChatImages,
-//         selectedAssistant
-//       )
-      
-//     };
-
-//     ws.addEventListener('message', handleInitialMessage);
-//     return () => ws.removeEventListener('message', handleInitialMessage);
-//   }, []);
 
 
 
