@@ -9,7 +9,7 @@ Installation guide:
 
 
 - To run backend: 
-    - cd FastAPI, uvicorn main:app --reload
+    - cd FastAPI, uvicorn main:app --reloadhi
     - backend changes will be reflected immediately
 
 - To run frontend: 

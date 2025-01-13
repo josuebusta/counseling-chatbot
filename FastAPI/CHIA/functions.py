@@ -61,7 +61,39 @@ from fastapi import WebSocket
 #     else:
 #         result = "The individual is at a lower risk for HIV. However, continue to practice safe behaviors and consult a healthcare professional for personalized advice."
 #     print("result", result)
-#     return result
+    # return result
+
+async def assess_hiv_risk(websocket) -> str:
+    """Conducts an HIV risk assessment through a series of questions."""
+    questions = [
+        "Have you had sex without condoms in the past 3 months?",
+        "Have you had multiple sexual partners in the past 12 months?",
+        "Have you used intravenous drugs or shared needles?",
+        "Do you have a sexual partner who is HIV positive or whose status you don't know?",
+        "Have you been diagnosed with an STI in the past 12 months?"
+    ]
+    
+    await websocket.send_text("I understand you'd like to assess your HIV risk. I'll ask you a few questions - everything you share is confidential, and I'm here to help without judgment.")
+    
+    answers = []
+    for question in questions:
+        await websocket.send_text(question)
+        response = await websocket.receive_text()
+        answers.append(response.lower().strip())
+    
+    # Count risk factors
+    risk_count = sum(1 for ans in answers if 'yes' in ans)
+    
+    # Generate appropriate response based on risk level
+    if risk_count >= 1:
+        return ("Based on your responses, you might benefit from PrEP (pre-exposure prophylaxis). "
+                "This is just an initial assessment, and I recommend discussing this further with a healthcare provider. "
+                "Would you like information about PrEP or help finding a provider in your area?")
+    else:
+        return ("Based on your responses, you're currently at lower risk for HIV. "
+                "It's great that you're being proactive about your health! "
+                "Continue your safer practices, and remember to get tested regularly. "
+                "Would you like to know more about HIV prevention or testing options?")
 
 
 

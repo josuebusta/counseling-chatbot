@@ -86,6 +86,7 @@ useEffect(() => {
     if (isInitialMessageSent) return;
 
     if (!chatMessages.length) {
+      console.log("Passes here")
       if (response === "Hello, my name is CHIA. It's nice to meet you. What's your name? If you have already given me your name, what can I help you with?") {
 
       
@@ -243,10 +244,10 @@ const handleSendMessage = async (
     const startingInput = messageContent
     console.log("handleSendMessage")
 
-    if (chatMessages.some(msg => msg.message.content === messageContent)) {
-      console.log("Message already exists, skipping send");
-      return;
-    }
+    // if (chatMessages.some(msg => msg.message.content === messageContent)) {
+    //   console.log("Message already exists, skipping send");
+    //   return;
+    // }
 
     try {
       console.log("handleSendMessage3")
