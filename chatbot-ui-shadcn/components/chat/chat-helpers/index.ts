@@ -185,8 +185,9 @@ export const handleHostedChat = async (
     ws.onmessage = (event) => {
       const response = event.data;
       console.log("response:", response);
-
-      if (!response.includes('patient:')) {
+      
+      
+      if (!response.includes('patient:') && !response.includes('{')) {
       // Handle the response from your custom backend
       processResponse(
         response,

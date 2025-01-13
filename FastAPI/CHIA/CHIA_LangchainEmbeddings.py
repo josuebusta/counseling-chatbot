@@ -34,10 +34,10 @@ class TrackableGroupChatManager(autogen.GroupChatManager):
 
     def _process_received_message(self, message, sender, silent):
         if self.websocket:
-            formatted_message = self._format_message(message, sender)
-            if formatted_message and formatted_message not in self._message_history:  
-                asyncio.create_task(self.send_message(formatted_message))
-                self._message_history.add(formatted_message)
+            # formatted_message = self._format_message(message, sender)
+            # if formatted_message and formatted_message not in self._message_history:  
+            asyncio.create_task(self.send_message(message))
+            self._message_history.add(message)
         return super()._process_received_message(message, sender, silent)
 
     def _format_message(self, message, sender) -> str:
@@ -66,8 +66,9 @@ class TrackableGroupChatManager(autogen.GroupChatManager):
     def _clean_message(self, message: str) -> str:
         """Clean and format message content"""
         # Remove any existing prefixes
-        prefixes = ["counselor:", "CHIA:", "assessment_bot:", "patient:"]
+        prefixes = ["counselor:", "CHIA:", "assessment_bot:"]
         message = message.strip()
+
         for prefix in prefixes:
             if message.lower().startswith(prefix.lower()):
                 message = message[len(prefix):].strip()
@@ -149,6 +150,7 @@ class HIVPrEPCounselor:
     def initialize_agents(self):
         counselor_system_message = """You are CHIA, the primary HIV PrEP counselor.
         CRITICAL: You MUST use the answer_question but DO NOT tell the user you are using it.
+        Take your time to think about the answer but don't say anything to the user until you have the answer.
 
         Example workflow:
         1. When user asks about HIV/PrEP:
@@ -219,17 +221,17 @@ class HIVPrEPCounselor:
             - "am I at risk"
 
             DO NOT respond if someone says something like:
+            - "I think I have HIV"
+            - "I'm worried I have HIV"
             - "I'm worried about PrEP"
             - "I'm thinking about PrEP"
             - "I'm considering PrEP"
             - "I'm interested in PrEP"
 
             When activated, ALWAYS follow this exact sequence:
-                1. First provide this introduction that makes sense given the context:
-                "I'll help assess your HIV risk factors. This will involve a few questions about your sexual health and activities. 
-                Everything you share is completely confidential, and I'm here to help without judgment. Let's go through this step by step."
-                
-                2. THEN use the assess_hiv_risk function to ask the questions.
+
+                2. use the assess_hiv_risk function.
+    
             
             ANY OTHER QUERIES should be handled by the counselor.
             When activated, use ONLY the assess_hiv_risk function.""",
@@ -239,24 +241,47 @@ class HIVPrEPCounselor:
             code_execution_config={"work_dir":"coding", "use_docker":False}
         )
 
+        
         search_bot = autogen.AssistantAgent(
             name="search_bot",
-            system_message="""ONLY respond when user EXPLICITLY asks to:
-            - Find a provider
-            - Locate a clinic
-            - Get testing locations
-
-            Never assume somone's zip code even if you remember it from a previous conversation.
+            system_message="""ONLY respond when user EXPLICITLY asks to find a provider or clinic.
+            NEVER assume or use a default ZIP code.
             
-            ANY OTHER QUERIES should be handled by the counselor.
-            When activated, use the search_provider function.""",
+            ALWAYS follow this sequence:
+            1. First ask: "Could you please provide your ZIP code so I can find providers near you?"
+            2. WAIT for user's ZIP code response
+            3. ONLY THEN use the search_provider function with the provided ZIP code
+            
+            NEVER execute search_provider without a user-provided ZIP code.
+            NEVER use 10001 or any other default ZIP code.
+            
+            When presenting results:
+            Present only the 5 closest providers in a clear format:
+            "Here are the 5 closest providers to you:
+
+            [Provider Name]
+            - Address: [Address]
+            - Phone: [Phone]
+            - Distance: [X] miles"
+            """,
             is_termination_msg=lambda x: self.check_termination(x),
             llm_config=self.config_list,
             human_input_mode="NEVER",
             code_execution_config={"work_dir":"coding", "use_docker":False}
         )
 
-        self.agents = [counselor, FAQ_agent, patient, assessment_bot, search_bot]
+        status_bot = autogen.AssistantAgent(
+            name="status_bot",
+            is_termination_msg=lambda x: self.check_termination(x),
+            llm_config=self.config_list,
+            system_message="""Only when explicitly asked to assess status of change, 
+            suggest the function that you have been provided with.""",
+            human_input_mode="NEVER",
+            code_execution_config={"work_dir":"coding", "use_docker":False}
+        )
+
+                
+        self.agents = [counselor, FAQ_agent, patient, assessment_bot, search_bot, status_bot]
 
         def answer_question_wrapper(user_question: str) -> str:
             return self.answer_question(user_question)
@@ -270,7 +295,18 @@ class HIVPrEPCounselor:
         def search_provider_wrapper(zip_code: str) -> str:
             return search_provider(zip_code)
 
-        # Register functions
+        async def assess_status_of_change_wrapper() -> str:
+            return await assess_ttm_stage_single_question(self.websocket)
+
+        autogen.agentchat.register_function(
+            assess_status_of_change_wrapper,
+            caller=status_bot,
+            executor=counselor,
+            name="assess_status_of_change",
+            description="Assesses the status of change for the patient.",
+        )
+
+
         autogen.agentchat.register_function(
             answer_question_wrapper,
             caller=FAQ_agent,
@@ -304,9 +340,10 @@ class HIVPrEPCounselor:
         # FAQ agent shouldn't respond directly
         FAQ_agent: [assessment_bot, search_bot, patient],
         # Search bot can only respond to patient when provider search is requested
-        search_bot: [assessment_bot, counselor, patient],
+        search_bot: [assessment_bot, counselor,search_bot, FAQ_agent],
         # Patient can receive responses from any agent
-        patient: []
+        patient: [],
+        status_bot: [status_bot, counselor, FAQ_agent, search_bot, assessment_bot]
     }
         
         self.group_chat = autogen.GroupChat(
@@ -321,7 +358,7 @@ class HIVPrEPCounselor:
         self.manager = TrackableGroupChatManager(
             groupchat=self.group_chat, 
             llm_config=self.config_list,
-            system_message="""Ensure counselor is primary responder. ITt should ALWAYS use FAQ agent's 
+            system_message="""Ensure counselor is primary responder. It should ALWAYS use FAQ agent's 
             knowledge for information unless the information is not available. Only use assessment_bot and search_bot for 
             explicit requests.
             
@@ -329,7 +366,9 @@ class HIVPrEPCounselor:
                 2. After an agent responds, wait for the user's next message
                 3. Never have multiple agents respond to the same user message,
                 4. Ensure counselor responds first using FAQ agent's knowledge, 
-                unless explicitly asked for risk assessment or provider search.""",
+                unless explicitly asked for risk assessment or provider search
+                
+                """,
             websocket=self.websocket
         )
 
@@ -353,6 +392,7 @@ class HIVPrEPCounselor:
             "./tmp/interactive/teachability_db",
             f"user_{self.user_id}"
         )
+
     
     # Initialize Teachability with thread-safe MemoStore
         teachability = Teachability(
@@ -364,6 +404,7 @@ class HIVPrEPCounselor:
         teachability.add_to_agent(counselor)
 
         teachability.add_to_agent(assessment_bot)
+        teachability.add_to_agent(search_bot)
 
     def update_history(self, recipient, message, sender):
         self.agent_history.append({

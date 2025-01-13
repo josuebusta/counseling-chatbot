@@ -18,55 +18,16 @@ import os
 from typing import Dict
 from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
 from fastapi import WebSocket
-
-# async def assess_hiv_risk(websocket: WebSocket) -> str:
-#     questions = {
-#         'sex_with_men': "Have you had unprotected sexual intercourse with men in the past 3 months? (Yes/No): ",
-#         'multiple_partners': "Have you had multiple sexual partners in the past 12 months? (Yes/No): ",
-#         'iv_drug_use': "Have you used intravenous drugs or shared needles? (Yes/No): ",
-#         'partner_hiv_positive/unknown': "Do you have a sexual partner who is HIV positive/ has unknown HIV status? (Yes/No): ",
-#         'std_history': "Have you been diagnosed with a sexually transmitted disease (STD) in the past 12 months? (Yes/No): "
-#     }
-
-#     prompt = """It's completely understandable to feel concerned about your health, 
-#     and I'm here to help you through this. To assess your HIV risk, I'll need to 
-#     ask you a series of questions. Please remember that this is a safe space, 
-#     and your feelings and experiences are important. Shall we begin? I'll be asking you some questions one at a time. \n\n"""
-
-#     high_risk = False
-#     responses = {}
-#     result = ""
-    
-#     # await websocket.send_text("HIV Risk Assessment Questionnaire\n")
-
-#     for key, question in questions.items():
-#         # Send the question to the client
-#         if key == "sex_with_men": # when it's the first question, send the prompt first
-#             await websocket.send_text(prompt + question)
-#         else:
-#             await websocket.send_text(question)
-#         # Receive the user's response through WebSocket
-#         response = await websocket.receive_text()
-#         response = response.strip().lower().strip('"')
-
-#         responses[key] = response
-#         if response == "yes":
-#             high_risk = True
-#             print("high_risk", high_risk)
-
-#     # Send the assessment result based on the responses
-    
-#     if high_risk:
-#         result = "The individual is at a higher risk for HIV. It is recommended to consider taking PrEP to protect from HIV infection."
-#     else:
-#         result = "The individual is at a lower risk for HIV. However, continue to practice safe behaviors and consult a healthcare professional for personalized advice."
-#     print("result", result)
-    # return result
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import json
 
 async def assess_hiv_risk(websocket) -> str:
     """Conducts an HIV risk assessment through a series of questions."""
     questions = [
-        "Have you had sex without condoms in the past 3 months?",
+        """I'll help assess your HIV risk factors. This will involve a few questions about your sexual health and activities. Everything you share is completely confidential, and I'm here to help without judgment. Let's go through this step by step.\n 
+        First question: Have you had sex without condoms in the past 3 months?""",
         "Have you had multiple sexual partners in the past 12 months?",
         "Have you used intravenous drugs or shared needles?",
         "Do you have a sexual partner who is HIV positive or whose status you don't know?",
@@ -161,62 +122,182 @@ def search_provider(zip_code: str) -> Dict:
         df = pd.DataFrame(extracted_data)
         df['Distance'] = df['Distance'].str.replace(r'[^\d.]+', '', regex=True)
         df['Distance'] = pd.to_numeric(df['Distance'], errors='coerce')
-        filtered_df = df[df['Distance'] <= 30]
+        # filtered_df = df[df['Distance'] <= 30]
+        filtered_df = df[df['Distance'] <= 30].nsmallest(5, 'Distance')  
         
         # Return data as JSON
-        return filtered_df.to_json(orient='records')
-    
+        formatted_results = "Here are the 5 closest providers to you:\n\n"
+            
+        for _, provider in filtered_df.iterrows():
+            formatted_results += f"{provider['Name']}\n"
+            formatted_results += f"- Address: {provider['Address']}\n"
+            formatted_results += f"- Phone: {provider['Phone']}\n"
+            formatted_results += f"- Distance: {provider['Distance']} miles\n\n"
+        
+        formatted_results += "Would you like any additional information about these providers?"
+        
+        return formatted_results
+        
     except Exception as e:
-        return {"error": str(e)}
+        return "I'm sorry, I couldn't find any providers near you. Please try again with a different ZIP code."
 
 # # Example usage:
 # print(search_provider("02912"))
 
 
+# async def assess_ttm_stage_single_question(websocket: WebSocket) -> str:
+#     """
+#     Assess the TTM stage of change based on a single validated question and response.
+    
+#     Parameters:
+#     response (str): The individual's response to the question:
+#                     "Are you currently engaging in Prep uptake on a regular basis?"
+#                     Valid response options:
+#                     - "No, and I do not intend to start in the next 6 months" (Precontemplation)
+#                     - "No, but I intend to start in the next 6 months" (Contemplation)
+#                     - "No, but I intend to start in the next 30 days" (Preparation)
+#                     - "Yes, I have been for less than 6 months" (Action)
+#                     - "Yes, I have been for more than 6 months" (Maintenance)
+    
+#     Returns:
+#     str: The stage of change (Precontemplation, Contemplation, Preparation, Action, Maintenance).
+#     """
+
+#     question = "Of course, I will ask you a single question to assess your status of change. \n Are you currently engaging in Prep uptake on a regular basis? Please respond with the number corresponding to your answer: \n 1. No, and I do not intend to start in the next 6 months. \n 2. No, but I intend to start in the next 6 months. \n 3. No, but I intend to start in the next 30 days. \n 4. Yes, I have been for less than 6 months. \n 5. Yes, I have been for more than 6 months."
+
+
+    
+#     response = ""
+#     stage = ""
+    
+#     # Map the response to the corresponding TTM stage
+#     while response not in ["1", "2", "3", "4", "5"]:
+#         await websocket.send_text(question)
+#         # Receive the user's response through WebSocket
+#         response = await websocket.receive_text()
+#         response = response.strip().lower().strip('"')
+#         if response == "1":
+#             stage = "Precontemplation"
+#         elif response == "2":
+#             stage = "Contemplation"
+#         elif response == "3":
+#             stage = "Preparation"
+#         elif response == "4":
+#             stage = "Action"
+#         elif response == "5":
+#             stage = "Maintenance"
+#         else:
+#             stage = "Unclassified"  # For unexpected or invalid responses
+    
+#     answer = f"The individual is in the '{stage}' stage of change." if stage != "Unclassified" else "Please respond with the number corresponding to your answer: 1. No, and I do not intend to start in the next 6 months 2. No, but I intend to start in the next 6 months 3. No, but I intend to start in the next 30 days 4. Yes, I have been for less than 6 months 5. Yes, I have been for more than 6 months"
+#     return answer
 async def assess_ttm_stage_single_question(websocket: WebSocket) -> str:
+    question = """Of course, I will ask you a single question to assess your status of change. 
+Are you currently engaging in Prep uptake on a regular basis? Please respond with the number corresponding to your answer: 
+1. No, and I do not intend to start in the next 6 months.
+2. No, but I intend to start in the next 6 months.
+3. No, but I intend to start in the next 30 days.
+4. Yes, I have been for less than 6 months.
+5. Yes, I have been for more than 6 months."""
+
+    await websocket.send_text(question)
+    
+    try:
+        # Get response
+        response = await websocket.receive_text()
+        print(f"Received response: {response}")
+        
+        # Parse JSON response
+        try:
+            response_json = json.loads(response)
+            # Extract content from JSON
+            response_number = response_json.get("content", "")
+        except json.JSONDecodeError:
+            response_number = response
+
+        # Map response to stage
+        stage_map = {
+            "1": "Precontemplation",
+            "2": "Contemplation",
+            "3": "Preparation",
+            "4": "Action",
+            "5": "Maintenance"
+        }
+        
+        stage = stage_map.get(response_number, "Unclassified")
+        
+        if stage != "Unclassified":
+            return f"Based on your response, you are in the '{stage}' stage of change regarding PrEP uptake. Let me explain what this means and discuss possible next steps."
+        else:
+            return "I didn't catch your response. Please respond with a number from 1 to 5 corresponding to your situation."
+            
+    except Exception as e:
+        print(f"Error processing response: {e}")
+        return "I'm having trouble processing your response. Please try again with a number from 1 to 5."
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Sep 10 11:49:18 2024
+
+@author: barbaratao
+"""
+
+
+
+def notify_research_assistant(client_name, client_id, support_type, assistant_email):
     """
-    Assess the TTM stage of change based on a single validated question and response.
+    Function to notify research assistant when a client needs personal support.
     
     Parameters:
-    response (str): The individual's response to the question:
-                    "Are you currently engaging in Prep uptake on a regular basis?"
-                    Valid response options:
-                    - "No, and I do not intend to start in the next 6 months" (Precontemplation)
-                    - "No, but I intend to start in the next 6 months" (Contemplation)
-                    - "No, but I intend to start in the next 30 days" (Preparation)
-                    - "Yes, I have been for less than 6 months" (Action)
-                    - "Yes, I have been for more than 6 months" (Maintenance)
-    
-    Returns:
-    str: The stage of change (Precontemplation, Contemplation, Preparation, Action, Maintenance).
+    client_name (str): Name of the client
+    client_id (str): ID of the client
+    support_type (str): Type of support needed (e.g., emotional, financial, etc.)
+    assistant_email (str): Email address of the research assistant
     """
-
-    question = "Of course, I will ask you a single question to assess your status of change. \n Are you currently engaging in Prep uptake on a regular basis? Please respond with the number corresponding to your answer: \n 1. No, and I do not intend to start in the next 6 months. \n 2. No, but I intend to start in the next 6 months. \n 3. No, but I intend to start in the next 30 days. \n 4. Yes, I have been for less than 6 months. \n 5. Yes, I have been for more than 6 months."
-
-
     
-    response = ""
-    stage = ""
+    # Set up email details
+    sender_email = "your_email@example.com"
+    sender_password = "your_password"
+    subject = f"Client {client_name} (ID: {client_id}) Needs Personal Support"
     
-    # Map the response to the corresponding TTM stage
-    while response not in ["1", "2", "3", "4", "5"]:
-        await websocket.send_text(question)
-        # Receive the user's response through WebSocket
-        response = await websocket.receive_text()
-        response = response.strip().lower().strip('"')
-        if response == "1":
-            stage = "Precontemplation"
-        elif response == "2":
-            stage = "Contemplation"
-        elif response == "3":
-            stage = "Preparation"
-        elif response == "4":
-            stage = "Action"
-        elif response == "5":
-            stage = "Maintenance"
-        else:
-            stage = "Unclassified"  # For unexpected or invalid responses
+    # Create the email content
+    message = MIMEMultipart()
+    message["From"] = sender_email
+    message["To"] = assistant_email
+    message["Subject"] = subject
     
-    answer = f"The individual is in the '{stage}' stage of change." if stage != "Unclassified" else "Please respond with the number corresponding to your answer: 1. No, and I do not intend to start in the next 6 months 2. No, but I intend to start in the next 6 months 3. No, but I intend to start in the next 30 days 4. Yes, I have been for less than 6 months 5. Yes, I have been for more than 6 months"
-    return answer
+    # Customize the email body with details about the client and the support type
+    body = f"""
+    Hello,
 
+    The client {client_name} (ID: {client_id}) requires personal support in the following area: {support_type}.
+
+    Please follow up with the client as soon as possible to provide the necessary support.
+
+    Thank you,
+    Support Team
+    """
+    
+    message.attach(MIMEText(body, "plain"))
+    
+    # Send the email
+    try:
+        # Establish a secure connection with the email server
+        server = smtplib.SMTP_SSL("smtp.example.com", 465)
+        server.login(sender_email, sender_password)
+        
+        # Send the email
+        server.sendmail(sender_email, assistant_email, message.as_string())
+        
+        # Close the connection
+        server.quit()
+        
+        print(f"Notification sent to {assistant_email} regarding client {client_name}.")
+    
+    except Exception as e:
+        print(f"Failed to send notification. Error: {e}")
+        
+
+# Example usage
+notify_research_assistant(client_name="John Doe", client_id="12345", support_type="emotional support", assistant_email="assistant@example.com")
