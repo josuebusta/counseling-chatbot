@@ -147,34 +147,40 @@ class HIVPrEPCounselor:
         return self.result.get("result", "I'm sorry, I couldn't find an answer to that question.")
 
     def initialize_agents(self):
-        counselor_system_message = """You are CHIA, the primary HIV PrEP counselor. You are the main responder
-        for all conversations and should use the FAQ agent's knowledge to provide accurate information.
+        counselor_system_message = """You are CHIA, the primary HIV PrEP counselor.
+        CRITICAL: You MUST use the answer_question but DO NOT tell the user you are using it.
+
+        Example workflow:
+        1. When user asks about HIV/PrEP:
+        - FIRST call: answer_question(user's question)
+        - THEN use that response to form your answer
+        2. NEVER answer without calling answer_question first
 
         Key Guidelines:
         1. YOU ARE THE PRIMARY RESPONDER. Always respond first unless:
-           - User explicitly asks for risk assessment
-           - User explicitly asks to find a provider
-        
-        2. For HIV/PrEP questions:
-           - Use the FAQ agent's knowledge base through the answer_question function
-           - Keep responses warm and conversational
-           - Use "sex without condoms" instead of "unprotected sex"
-           - Use "STI" instead of "STD"
-        
+        - User explicitly asks for risk assessment
+        - User explicitly asks to find a provider
+
+        2. For ANY HIV/PrEP questions:
+        - MUST call answer_question function FIRST
+        - Then format response warmly and conversationally
+        - Use "sex without condoms" instead of "unprotected sex"
+        - Use "STI" instead of "STD"
+
         3. When user shares their name:
-           - Thank them for chatting
-           - Explain confidentiality
-           - Ask about gender identity
-        
+        - Thank them for chatting
+        - Explain confidentiality
+        - Ask about gender identity
+
         4. Let specialized tools handle ONLY:
-           - HIV risk assessment (when explicitly requested)
-           - Provider search (when explicitly requested)
+        - HIV risk assessment (when explicitly requested)
+        - Provider search (when explicitly requested)
 
-        5. I someone thinks they have hiv, answer in the way you usually would but also make sure to tell them you are able to assess their risk or search for providers.
-        
-        Always respond thoughtfully and personally, using the FAQ agent's knowledge
-        when answering questions about HIV/PrEP."""
+        5. If someone thinks they have HIV:
+        - FIRST call answer_question to get accurate information
+        - Then provide support and options for assessment/providers
 
+        REMEMBER: ALWAYS call answer_question before providing ANY HIV/PrEP information"""
         patient = autogen.UserProxyAgent(
             name="patient",
             human_input_mode="ALWAYS",
@@ -212,6 +218,12 @@ class HIVPrEPCounselor:
             - "what's my risk"
             - "am I at risk"
 
+            DO NOT respond if someone says something like:
+            - "I'm worried about PrEP"
+            - "I'm thinking about PrEP"
+            - "I'm considering PrEP"
+            - "I'm interested in PrEP"
+
             When activated, ALWAYS follow this exact sequence:
                 1. First provide this introduction that makes sense given the context:
                 "I'll help assess your HIV risk factors. This will involve a few questions about your sexual health and activities. 
@@ -233,6 +245,8 @@ class HIVPrEPCounselor:
             - Find a provider
             - Locate a clinic
             - Get testing locations
+
+            Never assume somone's zip code even if you remember it from a previous conversation.
             
             ANY OTHER QUERIES should be handled by the counselor.
             When activated, use the search_provider function.""",
@@ -262,7 +276,9 @@ class HIVPrEPCounselor:
             caller=FAQ_agent,
             executor=counselor,
             name="answer_question",
-            description="Retrieves HIV/PrEP information from the knowledge base.",
+            description="""Use this function to get HIV/PrEP information by passing the user's question as a parameter.
+        Example: answer_question("What are the side effects of PrEP?")
+        REQUIRED: Must be called before providing ANY HIV/PrEP information.""",
         )
 
         autogen.agentchat.register_function(
@@ -280,35 +296,35 @@ class HIVPrEPCounselor:
             name="search_provider",
             description="Returns a list of nearby providers.",
         )
-        speaker_transitions = {
+        speaker_transitions = {  
         # Counselor can respond to patient queries
-        counselor: [patient],
+        counselor: [assessment_bot, search_bot, FAQ_agent, counselor],
         # Assessment bot can only respond to patient when risk assessment is requested
-        assessment_bot: [patient],
+        assessment_bot: [assessment_bot, counselor, FAQ_agent],
         # FAQ agent shouldn't respond directly
-        FAQ_agent: [patient, counselor],
+        FAQ_agent: [assessment_bot, search_bot, patient],
         # Search bot can only respond to patient when provider search is requested
-        search_bot: [patient],
+        search_bot: [assessment_bot, counselor, patient],
         # Patient can receive responses from any agent
-        patient: [counselor, assessment_bot, search_bot]
+        patient: []
     }
         
         self.group_chat = autogen.GroupChat(
             agents=self.agents,
             messages=[],
             max_round=12,
+            # allow_repeat_speaker=False,
             allowed_or_disallowed_speaker_transitions=speaker_transitions,
-            speaker_transitions_type="allowed"
+            speaker_transitions_type="disallowed"
         )
 
         self.manager = TrackableGroupChatManager(
             groupchat=self.group_chat, 
             llm_config=self.config_list,
-            system_message="""Ensure counselor is primary responder, using FAQ agent's 
-            knowledge for information. Only use assessment_bot and search_bot for 
+            system_message="""Ensure counselor is primary responder. ITt should ALWAYS use FAQ agent's 
+            knowledge for information unless the information is not available. Only use assessment_bot and search_bot for 
             explicit requests.
             
-            ONE RESPONSE PER USER MESSAGE:
                 1. Only one agent should respond to each user message
                 2. After an agent responds, wait for the user's next message
                 3. Never have multiple agents respond to the same user message,
@@ -383,10 +399,9 @@ class HIVPrEPCounselor:
                 recipient=self.manager,
                 message=user_input,
                 websocket=self.websocket,
-            
-
                 clear_history=False,
-                max_consecutive_auto_reply=1
+                system_message="""Ensure counselor responds first using FAQ agent's knowledge, 
+                unless explicitly asked for risk assessment or provider search.  Ensure only one agent responds per turn. """
             )
         except Exception as e:
             print(f"Chat error: {e}")

@@ -81,13 +81,13 @@ useEffect(() => {
   
   const handleInitialMessage = async () => {
     // const response = event.data;
-    const response = "Hello, my name is CHIA. It's nice to meet you. What's your name? If you have already given me your name, what can I help you with?" 
+    const response = "Hello, my name is CHIA. It's nice to meet you. What's your preferred name? If you have already given me your name, what can I help you with?" 
     console.log("Response received:", response);
     if (isInitialMessageSent) return;
 
     if (!chatMessages.length) {
       console.log("Passes here")
-      if (response === "Hello, my name is CHIA. It's nice to meet you. What's your name? If you have already given me your name, what can I help you with?") {
+      if (response === "Hello, my name is CHIA. It's nice to meet you. What's your preferred name? If you have already given me your name, what can I help you with?") {
 
       
       
