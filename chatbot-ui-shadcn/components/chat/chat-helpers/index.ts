@@ -152,6 +152,7 @@ export const handleHostedChat = async (
 
 
   console.log("Draft messages:", formattedMessages);
+  
 
   // Build request body
   const requestBody = {
@@ -443,7 +444,13 @@ export const handleCreateMessages = async (
         console.error("Failed to create messages:", error);
         throw error;
       });
+
+    // avoid duplicates
     console.log("createdMessages2")
+    if (createdMessages.length > 1){
+      console.log("createdMessages too long")
+      return
+    }
     console.log("createdMessages", createdMessages)
 
     // Upload each image (stored in newMessageImages) for the user message to message_images bucket

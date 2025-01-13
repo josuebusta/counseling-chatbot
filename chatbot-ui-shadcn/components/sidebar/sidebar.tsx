@@ -109,5 +109,6 @@ export const Sidebar: FC<SidebarProps> = ({ contentType, showSidebar }) => {
         })()}
       </div>
     </TabsContent>
+  
   )
 }

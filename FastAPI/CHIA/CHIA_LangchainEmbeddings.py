@@ -553,61 +553,140 @@ from .functions import search_provider, assess_ttm_stage_single_question, assess
 # CONFIGURATION 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+# class TrackableGroupChatManager(autogen.GroupChatManager):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self._last_message = None
+#         self._message_history = set()
+
+#     def _process_received_message(self, message, sender, silent):
+#         if self.websocket:
+#             formatted_message = self._format_message(message, sender)
+#             if formatted_message and formatted_message not in self._message_history:  
+#                 asyncio.create_task(self.send_message(formatted_message))
+#                 self._message_history.add(formatted_message)
+#         return super()._process_received_message(message, sender, silent)
+
+#     def _format_message(self, message, sender) -> str:
+#         """Format the message for display, handling various message types"""
+#         try:
+#             # Skip function calls and empty messages
+#             if isinstance(message, dict):
+#                 if 'function_call' in message or 'tool_calls' in message:
+#                     return None
+                
+#                 if 'content' in message and message['content']:
+#                     return self._clean_message(message['content'])
+                
+#                 if 'role' in message and message['role'] == 'tool':
+#                     if 'content' in message:
+#                         return self._clean_message(message['content'])
+                    
+#             elif isinstance(message, str) and message.strip():
+#                 return self._clean_message(message)
+                
+#             return None
+#         except Exception as e:
+#             print(f"Error formatting message: {e}")
+#             return None
+
+#     def _clean_message(self, message: str) -> str:
+#         """Clean and format message content"""
+#         # Remove any existing prefixes
+#         prefixes = ["counselor:", "CHIA:", "assessment_bot:", "patient:"]
+#         message = message.strip()
+#         for prefix in prefixes:
+#             if message.lower().startswith(prefix.lower()):
+#                 message = message[len(prefix):].strip()
+#         return message
+
+#     async def send_message(self, message: str):
+#         """Send message to websocket, avoiding duplicates"""
+#         if message and message != self._last_message:
+#             try:
+#                 await self.websocket.send_text(message)
+#                 self._last_message = message
+#             except Exception as e:
+#                 print(f"Error sending message: {e}")
+
+import asyncio
+import time
+import hashlib
+from typing import Set, Dict, Optional
+
 class TrackableGroupChatManager(autogen.GroupChatManager):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._last_message = None
-        self._message_history = set()
+        self._message_history: Set[str] = set()
+        self._last_message: Optional[str] = None
+        self._message_timestamps: Dict[str, float] = {}
+        self._dedup_window = 5.0  # 5 second window for deduplication
 
-    def _process_received_message(self, message, sender, silent):
-        if self.websocket:
-            formatted_message = self._format_message(message, sender)
-            if formatted_message and formatted_message not in self._message_history:  
-                asyncio.create_task(self.send_message(formatted_message))
-                self._message_history.add(formatted_message)
-        return super()._process_received_message(message, sender, silent)
+    def _calculate_message_hash(self, message: str, sender: str) -> str:
+        """Create a unique hash for the message"""
+        content = f"{sender}:{message}".encode('utf-8')
+        return hashlib.md5(content).hexdigest()
 
-    def _format_message(self, message, sender) -> str:
-        """Format the message for display, handling various message types"""
+    def _is_duplicate(self, message_hash: str) -> bool:
+        """Check if message is a duplicate within the time window"""
+        current_time = time.time()
+        if message_hash in self._message_timestamps:
+            last_seen = self._message_timestamps[message_hash]
+            if current_time - last_seen < self._dedup_window:
+                return True
+        return False
+
+    def _format_message(self, message, sender) -> Optional[str]:
+        """Format the message, handling various message types"""
         try:
-            # Skip function calls and empty messages
+            # Handle dictionaries (like function calls and tool responses)
             if isinstance(message, dict):
+                # Skip function calls
                 if 'function_call' in message or 'tool_calls' in message:
                     return None
                 
+                # Handle content field
                 if 'content' in message and message['content']:
-                    return self._clean_message(message['content'])
+                    return message['content']
                 
+                # Handle tool responses
                 if 'role' in message and message['role'] == 'tool':
                     if 'content' in message:
-                        return self._clean_message(message['content'])
+                        return message['content']
                     
-            elif isinstance(message, str) and message.strip():
-                return self._clean_message(message)
+            # Handle direct string messages
+            elif isinstance(message, str):
+                return message.strip()
                 
             return None
         except Exception as e:
             print(f"Error formatting message: {e}")
             return None
 
-    def _clean_message(self, message: str) -> str:
-        """Clean and format message content"""
-        # Remove any existing prefixes
-        prefixes = ["counselor:", "CHIA:", "assessment_bot:", "patient:"]
-        message = message.strip()
-        for prefix in prefixes:
-            if message.lower().startswith(prefix.lower()):
-                message = message[len(prefix):].strip()
-        return message
+    def _process_received_message(self, message, sender, silent):
+        """Process and deduplicate messages"""
+        if self.websocket:
+            formatted_message = self._format_message(message, sender)
+            if formatted_message:
+                message_hash = self._calculate_message_hash(formatted_message, sender.name)
+                
+                if not self._is_duplicate(message_hash):
+                    self._message_timestamps[message_hash] = time.time()
+                    self._message_history.add(message_hash)
+                    asyncio.create_task(self.send_message(formatted_message))
+
+        return super()._process_received_message(message, sender, silent)
 
     async def send_message(self, message: str):
-        """Send message to websocket, avoiding duplicates"""
-        if message and message != self._last_message:
-            try:
+        """Send message to websocket with deduplication"""
+        try:
+            if message and message != self._last_message:
                 await self.websocket.send_text(message)
                 self._last_message = message
-            except Exception as e:
-                print(f"Error sending message: {e}")
+        except Exception as e:
+            print(f"Error sending message: {e}")
+
+
 
 class HIVPrEPCounselor:
     def __init__(self, websocket: WebSocket, user_id: str):

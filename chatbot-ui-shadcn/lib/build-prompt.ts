@@ -163,7 +163,8 @@ console.log(assistant)
 
     return {
       role: message.role,
-      content
+      content,
+      id: message.id
     }
   })
 

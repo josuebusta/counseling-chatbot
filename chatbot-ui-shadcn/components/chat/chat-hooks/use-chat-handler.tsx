@@ -244,10 +244,6 @@ const handleSendMessage = async (
     const startingInput = messageContent
     console.log("handleSendMessage")
 
-    // if (chatMessages.some(msg => msg.message.content === messageContent)) {
-    //   console.log("Message already exists, skipping send");
-    //   return;
-    // }
 
     try {
       console.log("handleSendMessage3")
@@ -374,7 +370,16 @@ console.log("generatedText", generatedText)
         })
       }
 
+      // check if the chat already exists in the chatMessages array to avoid duplicates
+
       console.log("handleCreateMessages1")
+      if (currentChat) {
+      const existingChat = chatMessages.find(msg => msg.message.chat_id === currentChat!.id) 
+      if (existingChat || currentChat.id == '') {
+        console.log("existingChat", existingChat)
+        return
+      }
+    }
 
       console.log("chatMessages", chatMessages)
       console.log("currentChat", currentChat)
