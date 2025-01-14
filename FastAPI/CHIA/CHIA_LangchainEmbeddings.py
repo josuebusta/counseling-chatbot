@@ -16,8 +16,7 @@ from pydantic import BaseModel
 from typing import List
 import os
 from autogen.agentchat.contrib.capabilities.teachability import Teachability
-from .functions import search_provider, assess_ttm_stage_single_question, assess_hiv_risk
-
+from .functions import search_provider, assess_ttm_stage_single_question, assess_hiv_risk, notify_research_assistant
 import time
 import hashlib
 from typing import Set, Dict, Optional
@@ -245,7 +244,7 @@ class HIVPrEPCounselor:
         search_bot = autogen.AssistantAgent(
             name="search_bot",
             system_message="""ONLY respond when user EXPLICITLY asks to find a provider or clinic.
-            NEVER assume or use a default ZIP code.
+             NEVER assume or use a default ZIP code.
             
             ALWAYS follow this sequence:
             1. First ask: "Could you please provide your ZIP code so I can find providers near you?"
@@ -280,8 +279,42 @@ class HIVPrEPCounselor:
             code_execution_config={"work_dir":"coding", "use_docker":False}
         )
 
+        notify_assistant_bot = autogen.AssistantAgent(
+            name="notify_assistant_bot",
+            system_message="""ONLY intervene when the patient shows signs of distress. Only intervene when the patient shows signs of distress (sadness, anxiety, stress). It is critical that you let the counselor lead the conversation. 
+            You MUST follow these steps IN ORDER and WAIT for each response:
+
+            STEP 1: FIRST ASK ONLY THIS:
+            Ask something along the lines of: "I understand you may be feeling stressed. Would you like additional support from a human research assistant?" in a warm way that makes sense given the context of the conversation.
+            - Then WAIT for yes/no response
+            - If no, stop here
+            - Only continue if yes
+            
+            STEP 2: THEN ASK BOTH OF THESE:
+            "To help connect you with the right support:
+            - What name would you like me to use for you?
+            - What type of support would be most helpful? (emotional, financial, medical support, etc.)"
+            - WAIT for both pieces of information
+            - DO NOT proceed without both name and support type
+            
+            STEP 3: ONLY AFTER getting both pieces of information:
+            - Call notify_research_assistant function with the provided name and support type
+            - Tell patient a research assistant will contact them
+            
+            NEVER call the notify_research_assistant function without first getting:
+            1. Explicit yes to wanting support
+            2. Name to use
+            3. Type of support needed
+            
+            NEVER skip steps or assume information - must get explicit responses.""",
+            is_termination_msg=lambda x: self.check_termination(x),
+            llm_config=self.config_list,
+            human_input_mode="NEVER",
+            code_execution_config={"work_dir":"coding", "use_docker":False}
+        )
+
                 
-        self.agents = [counselor, FAQ_agent, patient, assessment_bot, search_bot, status_bot]
+        self.agents = [counselor, FAQ_agent, patient, assessment_bot, search_bot, status_bot, notify_assistant_bot]
 
         def answer_question_wrapper(user_question: str) -> str:
             return self.answer_question(user_question)
@@ -297,6 +330,21 @@ class HIVPrEPCounselor:
 
         async def assess_status_of_change_wrapper() -> str:
             return await assess_ttm_stage_single_question(self.websocket)
+        
+        def notify_research_assistant_wrapper(client_name: str, support_type: str, assistant_email:str = "amarisgrondin@gmail.com", client_id: str = self.user_id) -> str:
+            try:
+                return notify_research_assistant(client_name, support_type, assistant_email, client_id)
+            except Exception as e:
+                print(f"Error in notification: {e}")
+                return "I'm having trouble with the notification system. Please let the counselor know you'd like to speak with a research assistant."
+                
+        autogen.agentchat.register_function(
+            notify_research_assistant_wrapper,
+            caller=notify_assistant_bot,
+            executor=counselor,
+            name="notify_research_assistant",
+            description="Notifies the research assistant when the patient shows signs of distress.",
+        )
 
         autogen.agentchat.register_function(
             assess_status_of_change_wrapper,
@@ -334,23 +382,23 @@ class HIVPrEPCounselor:
         )
         speaker_transitions = {  
         # Counselor can respond to patient queries
-        counselor: [assessment_bot, search_bot, FAQ_agent, counselor],
+        counselor: [assessment_bot, search_bot, FAQ_agent, counselor, status_bot, notify_assistant_bot],
         # Assessment bot can only respond to patient when risk assessment is requested
-        assessment_bot: [assessment_bot, counselor, FAQ_agent],
+        assessment_bot: [assessment_bot, counselor, FAQ_agent, status_bot, notify_assistant_bot],
         # FAQ agent shouldn't respond directly
-        FAQ_agent: [assessment_bot, search_bot, patient],
+        FAQ_agent: [assessment_bot, search_bot, patient, status_bot, notify_assistant_bot],
         # Search bot can only respond to patient when provider search is requested
-        search_bot: [assessment_bot, counselor,search_bot, FAQ_agent],
+        search_bot: [assessment_bot, counselor,search_bot, FAQ_agent, status_bot, notify_assistant_bot],
         # Patient can receive responses from any agent
         patient: [],
-        status_bot: [status_bot, counselor, FAQ_agent, search_bot, assessment_bot]
+        status_bot: [status_bot, counselor, FAQ_agent, search_bot, assessment_bot, notify_assistant_bot],
+        notify_assistant_bot: [notify_assistant_bot, counselor, FAQ_agent, search_bot, assessment_bot, status_bot]
     }
         
         self.group_chat = autogen.GroupChat(
             agents=self.agents,
             messages=[],
             max_round=12,
-            # allow_repeat_speaker=False,
             allowed_or_disallowed_speaker_transitions=speaker_transitions,
             speaker_transitions_type="disallowed"
         )

@@ -26,8 +26,7 @@ import json
 async def assess_hiv_risk(websocket) -> str:
     """Conducts an HIV risk assessment through a series of questions."""
     questions = [
-        """I'll help assess your HIV risk factors. This will involve a few questions about your sexual health and activities. Everything you share is completely confidential, and I'm here to help without judgment. Let's go through this step by step.\n 
-        First question: Have you had sex without condoms in the past 3 months?""",
+        """I'll help assess your HIV risk factors. This will involve a few questions about your sexual health and activities. Everything you share is completely confidential, and I'm here to help without judgment. Let's go through this step by step.\n First question: Have you had sex without condoms in the past 3 months?""",
         "Have you had multiple sexual partners in the past 12 months?",
         "Have you used intravenous drugs or shared needles?",
         "Do you have a sexual partner who is HIV positive or whose status you don't know?",
@@ -245,7 +244,8 @@ Created on Tue Sep 10 11:49:18 2024
 
 
 
-def notify_research_assistant(client_name, client_id, support_type, assistant_email):
+def notify_research_assistant(client_name, support_type, assistant_email, client_id, smtp_server: str = "smtp.gmail.com",
+    smtp_port: int = 465):
     """
     Function to notify research assistant when a client needs personal support.
     
@@ -255,10 +255,11 @@ def notify_research_assistant(client_name, client_id, support_type, assistant_em
     support_type (str): Type of support needed (e.g., emotional, financial, etc.)
     assistant_email (str): Email address of the research assistant
     """
+    print(f"Notifying research assistant {assistant_email} for client {client_name} (ID: {client_id}) with support type {support_type}.")
     
     # Set up email details
-    sender_email = "your_email@example.com"
-    sender_password = "your_password"
+    sender_email = "t28184003@gmail.com"
+    sender_password = "vnqs wulc clye ncjx"
     subject = f"Client {client_name} (ID: {client_id}) Needs Personal Support"
     
     # Create the email content
@@ -284,7 +285,7 @@ def notify_research_assistant(client_name, client_id, support_type, assistant_em
     # Send the email
     try:
         # Establish a secure connection with the email server
-        server = smtplib.SMTP_SSL("smtp.example.com", 465)
+        server = smtplib.SMTP_SSL(smtp_server, smtp_port)
         server.login(sender_email, sender_password)
         
         # Send the email
@@ -292,12 +293,13 @@ def notify_research_assistant(client_name, client_id, support_type, assistant_em
         
         # Close the connection
         server.quit()
-        
         print(f"Notification sent to {assistant_email} regarding client {client_name}.")
+        
+        return (f"A research assistant has been notified and will reach out to provide {support_type} support.")
     
     except Exception as e:
         print(f"Failed to send notification. Error: {e}")
+        return (f"Failed to send notification. Error: {e}")
         
 
-# Example usage
-notify_research_assistant(client_name="John Doe", client_id="12345", support_type="emotional support", assistant_email="assistant@example.com")
+# im very stressed about hiv
