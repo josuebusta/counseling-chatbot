@@ -62,7 +62,6 @@ export class WebSocketManager {
   }
 
   public initializeWithChatId(chatId: string | null): Promise<void> {
-    // If already initializing with this user ID, return existing promise
     if (this.initializationPromise && this.chatId === chatId) {
       return this.initializationPromise;
     }

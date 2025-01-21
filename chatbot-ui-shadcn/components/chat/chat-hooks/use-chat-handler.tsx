@@ -100,13 +100,13 @@ export const useChatHandler = () => {
       console.log("Profile found, setting initial message sent flag");
 
       // setIsInitialMessageSent(true);
-      if (!chatId) {
-        setChatId(uuidv4());
-        console.log("chatId", chatId);
-      }
+      // if (!chatId) {
+      //   setChatId(uuidv4());
+      //   console.log("chatId", chatId);
+      // }
       
 
-      wsManager.initializeWithChatId(chatId);
+      //wsManager.initializeWithChatId(chatId);
       console.log("chatId", chatId);
 
       if (response === "Hello, my name is CHIA. It's nice to meet you. What's your preferred name? If you have already given me your name, what can I help you with?") {
