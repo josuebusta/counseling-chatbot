@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from typing import List
 import os
 from autogen.agentchat.contrib.capabilities.teachability import Teachability
-from .functions import search_provider, assess_ttm_stage_single_question, assess_hiv_risk, notify_research_assistant
+from .functions import search_provider, assess_ttm_stage_single_question, assess_hiv_risk, notify_research_assistant, record_support_request
 import time
 import hashlib
 from typing import Set, Dict, Optional
@@ -31,13 +31,13 @@ class TrackableGroupChatManager(autogen.GroupChatManager):
         self._last_message = None
         self._message_history = set()
 
-    def _process_received_message(self, message, sender, silent):
-        if self.websocket:
-            # formatted_message = self._format_message(message, sender)
-            # if formatted_message and formatted_message not in self._message_history:  
-            asyncio.create_task(self.send_message(message))
-            self._message_history.add(message)
-        return super()._process_received_message(message, sender, silent)
+    # def _process_received_message(self, message, sender, silent):
+    #     if self.websocket:
+    #         # formatted_message = self._format_message(message, sender)
+    #         # if formatted_message and formatted_message not in self._message_history:  
+    #         asyncio.create_task(self.send_message(message))
+    #         self._message_history.add(message)
+    #     return super()._process_received_message(message, sender, silent)
 
     def _format_message(self, message, sender) -> str:
         """Format the message for display, handling various message types"""
@@ -108,9 +108,11 @@ class TrackableGroupChatManager(autogen.GroupChatManager):
 
 
 class HIVPrEPCounselor:
-    def __init__(self, websocket: WebSocket, user_id: str):
+    def __init__(self, websocket: WebSocket, user_id: str, chat_id: str):
         load_dotenv()
         self.user_id = user_id
+        self.chat_id = chat_id 
+        print("chat_id", self.chat_id)
         self.api_key = os.getenv('OPENAI_API_KEY')
         self.websocket = websocket
 
@@ -282,31 +284,18 @@ class HIVPrEPCounselor:
         notify_assistant_bot = autogen.AssistantAgent(
             name="notify_assistant_bot",
             system_message="""ONLY intervene when the patient shows signs of distress. Only intervene when the patient shows signs of distress (sadness, anxiety, stress). It is critical that you let the counselor lead the conversation. 
-            You MUST follow these steps IN ORDER and WAIT for each response:
-
-            STEP 1: FIRST ASK ONLY THIS:
-            Ask something along the lines of: "I understand you may be feeling stressed. Would you like additional support from a human research assistant?" in a warm way that makes sense given the context of the conversation.
-            - Then WAIT for yes/no response
-            - If no, stop here
-            - Only continue if yes
-            
-            STEP 2: THEN ASK BOTH OF THESE:
-            "To help connect you with the right support:
-            - What name would you like me to use for you?
-            - What type of support would be most helpful? (emotional, financial, medical support, etc.)"
-            - WAIT for both pieces of information
-            - DO NOT proceed without both name and support type
-            
-            STEP 3: ONLY AFTER getting both pieces of information:
-            - Call notify_research_assistant function with the provided name and support type
-            - Tell patient a research assistant will contact them
-            
-            NEVER call the notify_research_assistant function without first getting:
-            1. Explicit yes to wanting support
-            2. Name to use
-            3. Type of support needed
+        
             
             NEVER skip steps or assume information - must get explicit responses.""",
+            is_termination_msg=lambda x: self.check_termination(x),
+            llm_config=self.config_list,
+            human_input_mode="NEVER",
+            code_execution_config={"work_dir":"coding", "use_docker":False}
+        )
+
+        assess_MI_skills = autogen.AssistantAgent(
+            name="assess_MI_skills",
+            system_message="""You are a research assistant that assesses the patient's Motivational Interviewing skills based on the patient's response.""",
             is_termination_msg=lambda x: self.check_termination(x),
             llm_config=self.config_list,
             human_input_mode="NEVER",
@@ -331,18 +320,16 @@ class HIVPrEPCounselor:
         async def assess_status_of_change_wrapper() -> str:
             return await assess_ttm_stage_single_question(self.websocket)
         
-        def notify_research_assistant_wrapper(client_name: str, support_type: str, assistant_email:str = "amarisgrondin@gmail.com", client_id: str = self.user_id) -> str:
-            try:
-                return notify_research_assistant(client_name, support_type, assistant_email, client_id)
-            except Exception as e:
-                print(f"Error in notification: {e}")
-                return "I'm having trouble with the notification system. Please let the counselor know you'd like to speak with a research assistant."
+        async def record_support_request_wrapper() -> str:
+            """Wrapper to handle the async record_support_request function"""
+            return await record_support_request(self.websocket, self.chat_id)
+
                 
         autogen.agentchat.register_function(
-            notify_research_assistant_wrapper,
+            record_support_request_wrapper,
             caller=notify_assistant_bot,
             executor=counselor,
-            name="notify_research_assistant",
+            name="record_support_request",
             description="Notifies the research assistant when the patient shows signs of distress.",
         )
 
@@ -380,13 +367,17 @@ class HIVPrEPCounselor:
             name="search_provider",
             description="Returns a list of nearby providers.",
         )
+
+
+        
+
         speaker_transitions = {  
         # Counselor can respond to patient queries
         counselor: [assessment_bot, search_bot, FAQ_agent, counselor, status_bot, notify_assistant_bot],
         # Assessment bot can only respond to patient when risk assessment is requested
         assessment_bot: [assessment_bot, counselor, FAQ_agent, status_bot, notify_assistant_bot],
         # FAQ agent shouldn't respond directly
-        FAQ_agent: [assessment_bot, search_bot, patient, status_bot, notify_assistant_bot],
+        FAQ_agent: [assessment_bot, search_bot, patient, status_bot, notify_assistant_bot, FAQ_agent],
         # Search bot can only respond to patient when provider search is requested
         search_bot: [assessment_bot, counselor,search_bot, FAQ_agent, status_bot, notify_assistant_bot],
         # Patient can receive responses from any agent

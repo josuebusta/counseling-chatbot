@@ -3,6 +3,7 @@ export class WebSocketManager {
   private socket: WebSocket | null = null;
   private messageQueue: any[] = [];
   private userId: string | null = null;
+  private chatId: string | null = null;
   private isInitialized: boolean = false;
   private initializationPromise: Promise<void> | null = null;
   private pendingMessageResolvers: Map<string, (value: any) => void> = new Map();
@@ -28,23 +29,6 @@ export class WebSocketManager {
     
     this.initializationPromise = new Promise((resolve) => {
       const ws = this.getSocket();
-      
-      // const initHandler = (event: MessageEvent) => {
-      //   try {
-      //     const response = JSON.parse(event.data);
-      //     if (response.type === 'connection_established') {
-      //       this.isInitialized = true;
-      //       ws.removeEventListener('message', initHandler);
-      //       resolve();
-      //     }
-      //   } catch (e) {
-      //     console.error('Error parsing init response:', e);
-      //   }
-      // };
-
-      // ws.addEventListener('message', initHandler);
-      
-      // Only send user ID if not already initialized
       console.log("isInitialized")
       if (!this.isInitialized) {
         if (ws.readyState === WebSocket.OPEN) {
@@ -73,6 +57,48 @@ export class WebSocketManager {
     this.socket.send(JSON.stringify({
       type: 'user_id',
       content: this.userId
+    }));
+
+  }
+
+  public initializeWithChatId(chatId: string | null): Promise<void> {
+    // If already initializing with this user ID, return existing promise
+    if (this.initializationPromise && this.chatId === chatId) {
+      return this.initializationPromise;
+    }
+
+    this.chatId = chatId;
+    
+    this.initializationPromise = new Promise((resolve) => {
+      const ws = this.getSocket();
+      console.log("isInitialized")
+      if (!this.isInitialized) {
+        if (ws.readyState === WebSocket.OPEN) {
+          console.log("readyState")
+          this.sendChatId();
+        } else {
+          const openHandler = () => {
+            console.log("openHandler1")
+            this.sendUserId();
+            ws.removeEventListener('open', openHandler);
+
+          };
+          ws.addEventListener('open', openHandler);
+          console.log("openHandler2")
+        }
+      }
+    });
+    console.log("initializationPromise", this.initializationPromise)
+
+    return this.initializationPromise;
+  }
+
+  private sendChatId() {
+    if (!this.chatId || !this.socket) return;
+    console.log("Sending chat ID:", this.chatId);
+    this.socket.send(JSON.stringify({
+      type: 'chat_id',
+      content: this.chatId
     }));
 
   }
@@ -109,6 +135,7 @@ export class WebSocketManager {
         this.socket = null;
         this.isInitialized = false;
         this.initializationPromise = null;
+        
       };
 
       this.socket.onerror = (error) => {
@@ -176,14 +203,17 @@ export class WebSocketManager {
     }
   }
 
-  public close(): void {
+  public close() {
     if (this.socket) {
       this.socket.close();
-      this.socket = null;
-      this.isInitialized = false;
-      this.initializationPromise = null;
-      this.pendingMessageResolvers.clear();
-      this.messageQueue = [];
+      this.socket.onclose = () => {
+        console.log("WebSocket connection closed");
+        this.socket = null;
+        this.isInitialized = false;
+        this.initializationPromise = null;
+      };
+      this.getSocket();
+      
     }
   }
 }

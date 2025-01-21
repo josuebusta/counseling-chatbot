@@ -22,6 +22,11 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import json
+from supabase import create_client
+import os
+from datetime import datetime, timezone
+
+
 
 async def assess_hiv_risk(websocket) -> str:
     """Conducts an HIV risk assessment through a series of questions."""
@@ -302,4 +307,195 @@ def notify_research_assistant(client_name, support_type, assistant_email, client
         return (f"Failed to send notification. Error: {e}")
         
 
-# im very stressed about hiv
+
+# Set up Supabase client
+supabase = create_client(
+    os.environ.get("NEXT_PUBLIC_SUPABASE_URL"),
+    os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+)
+
+async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
+    """
+    Record in Supabase when a user requests support.
+    """
+    try:
+        # Step 1: Ask if they want support
+        await websocket.send_text("I understand you're feeling stressed. Would you like additional support from a human research assistant?")
+        
+        # Wait for response
+        response = await websocket.receive_text()
+        response_json = json.loads(response)
+        answer = response_json.get("content", "").lower()
+        
+        # if "yes" not in answer:
+        #     return "I understand. Please let me know if you change your mind."
+            
+        # Step 2: Get name and support type
+        await websocket.send_text("To help connect you with the right support:\n- What name would you like me to use for you?\n- What type of support would be most helpful? (emotional, financial, medical support, etc.)")
+        
+        # Wait for response with name and support type
+        response = await websocket.receive_text()
+        response_json = json.loads(response)
+        info = response_json.get("content", "")
+        
+        # Parse response
+        parts = [part.strip() for part in info.split(',')]
+        name = parts[0] if len(parts) >= 2 else "Anonymous"
+        support_type = parts[1] if len(parts) >= 2 else parts[0]
+
+        # Record in Supabase
+        supabase.table("support_requests").insert({
+            "client_name": name,
+            "support_type": support_type,
+            "created_at": datetime.now().isoformat(),
+            "notified": False,
+            "chat_id": chat_id
+        }).execute()
+        
+        return f"Thank you for sharing that. When your chat session ends, a research assistant will reach out to provide {support_type} support."
+        
+    except Exception as e:
+        print(f"Error recording support request: {e}")
+        return "I'm having trouble recording your request. Please let me know if you'd like to try again."
+
+# async def check_inactive_chats():
+#     """
+#     Background task to check for inactive chats and send notifications.
+#     Runs periodically (e.g., every minute).
+#     """
+#     try:
+#         # Get support requests that haven't been notified
+#         result = supabase.table("support_requests")\
+#             .select(
+#                 "*, updated_at, chats!inner(updated_at)",
+#                 count='exact'
+#             )\
+#             .eq("notified", False)\
+#             .execute()
+
+#         current_time = datetime.now(timezone.utc)
+
+#         if result.data:  # Check if we got any results
+#             for request in result.data:
+#                 # Parse the timestamp from chat
+#                 chat_timestamp = datetime.fromisoformat(request['chats']['updated_at'])
+                
+#                 # Check if inactive for more than 5 minutes
+#                 if (current_time - chat_timestamp).total_seconds() > 3:
+#                     # Send email notification
+#                     await notify_research_assistant(
+#                         request["client_name"],
+#                         request["support_type"]
+#                     )
+                    
+#                     # Update as notified
+#                     supabase.table("support_requests")\
+#                         .update({"notified": True})\
+#                         .eq("id", request["id"])\
+#                         .execute()
+
+
+async def handle_inactivity(user_id, last_activity_time):
+    """
+    Handle the case where the user has been inactive for more than 5 minutes.
+    This could involve sending an email or logging the event.
+    """
+    print(f"User {user_id} has been inactive since {last_activity_time}. Triggering action.")
+    
+    # Implement your logic to send the email or take the necessary action
+    # For example, call your email service here
+    # email_service.send_inactivity_email(user_id)
+
+    # Example log:
+    print(f"Sending email notification to user {user_id} about inactivity since {last_activity_time}")
+
+
+
+# async def check_inactive_chats():
+#     try:
+#         # Fetch last activity times from chats and join with support_requests
+#         response = supabase.table("support_requests")\
+#             .select("*, chats!support_requests_chat_id_fkey(id, updated_at)")\
+#             .eq("notified", False)\
+#             .execute()
+        
+#         print(response)
+#         # Access the data attribute from the response
+#         data = response.data
+#         print(data)
+        
+#         if not data:
+#             print("No inactive chats found.")
+#             return
+
+#         # Current time
+#         current_time = datetime.now()
+
+#         # Loop through the results and check for inactivity
+#         for record in data:
+#             if 'chats' in record and record['chats']:
+#                 chat_id = record['chats'][0].get('chat_id')
+#                 last_activity_time = datetime.fromisoformat(record['chats'][0].get('updated_at'))
+#                 print("last_activity_time", last_activity_time)
+                
+#                 # Calculate time difference
+#                 time_diff = current_time - last_activity_time
+#                 print("time_diff", time_diff)
+#                 print("current_time", current_time)
+#                 print("last_activity_time", last_activity_time)
+#                 if time_diff > timedelta(minutes=5):
+#                     # Handle inactivity (e.g., trigger email or log it)
+#                     await handle_inactivity(chat_id, last_activity_time)
+
+#                     # Optionally, update the `notified` field in support_requests
+#                     supabase.table("support_requests") \
+#                         .update({"notified": True}) \
+#                         .eq("chat_id", record['id']) \
+#                         .execute()
+#     except Exception as e:
+#         print(f"Error checking inactive chats: {e}")
+
+# Initialize the Supabase client (replace with your project URL and API key)
+async def check_inactive_chats():
+    try:
+        # Fetch support requests with related chat data where notified is False
+        response = supabase.table("support_requests")\
+            .select("id, chat_id, chats(updated_at)")\
+            .eq("notified", False)\
+            .execute()
+        
+        # Remove error check since response.error doesn't exist
+        support_requests = response
+        print("support_requests", support_requests)
+        if not support_requests:
+            print("No support requests found.")
+            return
+
+        # Get the current time
+        current_time = datetime.now(timezone.utc)
+
+        # Filter support requests where the last activity was more than 5 minutes ago
+        updates = []
+        for request in support_requests:
+            chat = request
+            print("chat", chat)
+            if chat:
+                updated_at = chat["updated_at"],
+                if (current_time - updated_at).total_seconds() > 300:
+                    updates.append(request["id"])
+
+        # Update the notified field for the filtered support requests
+        if updates:
+            for request_id in updates:
+                update_response = supabase.table("support_requests")\
+                    .update({"notified": True})\
+                    .eq("id", request_id)\
+                    .execute()
+                
+                # Remove error check here as well
+                print(f"Support request {request_id} updated successfully.")
+        else:
+            print("No support requests need updating.")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")

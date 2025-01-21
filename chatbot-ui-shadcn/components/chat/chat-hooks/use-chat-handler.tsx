@@ -67,85 +67,81 @@ export const useChatHandler = () => {
     models,
     isPromptPickerOpen,
     isFilePickerOpen,
-    isToolPickerOpen
+    isToolPickerOpen,
+    isInitialMessageSent,
+    setIsInitialMessageSent,
+    chatId,
+    setChatId,
+   
   } = useContext(ChatbotUIContext)
 
   const chatInputRef = useRef<HTMLTextAreaElement>(null)
-  
-  const [isInitialMessageSent, setIsInitialMessageSent] = useState(false);
+
   const messageAlreadySent = useRef(false);
+  let currentChat = selectedChat ? { ...selectedChat } : null
+  const response = "Hello, my name is CHIA. It's nice to meet you. What's your preferred name? If you have already given me your name, what can I help you with?" 
 
 
-useEffect(() => {
-  // const ws = wsManager.getSocket();
   
-  const handleInitialMessage = async () => {
-    // const response = event.data;
-    const response = "Hello, my name is CHIA. It's nice to meet you. What's your preferred name? If you have already given me your name, what can I help you with?" 
-    console.log("Response received:", response);
-    if (isInitialMessageSent) return;
 
-    if (!chatMessages.length) {
-      console.log("Passes here")
+
+  useEffect(() => {
+    const handleInitialMessage = async () => {
+      // Ensure WebSocket connection is set
+
+      // Set response based on your WebSocket logic or event (this is just an example)
+      // const response = await someApiCallOrSocketResponse();
+
+      console.log("Response received:", response);
+      if (chatMessages.length > 0) {
+        return;
+      }
+
+      console.log("Profile found, setting initial message sent flag");
+
+      // setIsInitialMessageSent(true);
+      if (!chatId) {
+        setChatId(uuidv4());
+        console.log("chatId", chatId);
+      }
+      
+
+      wsManager.initializeWithChatId(chatId);
+      console.log("chatId", chatId);
+
       if (response === "Hello, my name is CHIA. It's nice to meet you. What's your preferred name? If you have already given me your name, what can I help you with?") {
+        const tempMessage = {
+          message: {
+            chat_id: "",
+            assistant_id: selectedAssistant?.id || null,
+            content: response,
+            created_at: new Date().toISOString(),
+            id: chatId,
+            image_paths: [],
+            model: chatSettings?.model || "default",
+            role: "assistant",
+            sequence_number: 0,
+            updated_at: new Date().toISOString(),
+            user_id: profile?.user_id || ""
+          },
+          fileItems: []
+        };
 
-      
-      
-      const tempMessage = {
-        message: {
-          chat_id: "",
-          assistant_id: selectedAssistant?.id || null,
-          content: response,
-          created_at: new Date().toISOString(),
-          id: uuidv4(),
-          image_paths: [],
-          model: chatSettings?.model || "default",
-          role: "assistant",
-          sequence_number: 0,
-          updated_at: new Date().toISOString(),
-          user_id: profile?.user_id || ""
-        },
-        fileItems: []
-      };
-      
-      setChatMessages([tempMessage]);
-    
-      // const newChat = await handleCreateChat(
-      //   chatSettings!,
-      //   profile!,
-      //   selectedWorkspace!,
-      //   "Initial Chat",
-      //   selectedAssistant!,
-      //   [],
-      //   setSelectedChat,
-      //   setChats,
-      //   setChatFiles
-      // );
+        setChatMessages([tempMessage]);
+        console.log("chatMessages", chatMessages);
+      }
+    };
 
-      // await handleCreateMessages(
-      //   [tempMessage],
-      //   newChat,
-      //   profile!,
-      //   LLM_LIST[0],
-      //   response,
-      //   response,
-      //   [],
-      //   false,
-      //   [],
-      //   setChatMessages,
-      //   setChatFileItems,
-      //   setChatImages,
-      //   selectedAssistant
-      // );
-      setIsInitialMessageSent(true);
-    }
-    }
-  };
+    handleInitialMessage();
+  }, [isInitialMessageSent]);
 
-  // ws.addEventListener('message', handleInitialMessage);
-  // return () => ws.removeEventListener('message', handleInitialMessage);
-  handleInitialMessage()
-}, []);
+  // useEffect(() => {
+  //   if (!chatMessages) {
+  //     wsManager.close()
+  //   }
+  // }, [chatMessages])
+
+
 
   useEffect(() => {
     if (!isPromptPickerOpen || !isFilePickerOpen || !isToolPickerOpen) {
@@ -154,6 +150,8 @@ useEffect(() => {
   }, [isPromptPickerOpen, isFilePickerOpen, isToolPickerOpen])
 
   const handleNewChat = async () => {
+   
+    
     if (!selectedWorkspace) return
 
     setUserInput("")
@@ -241,6 +239,8 @@ const handleSendMessage = async (
     chatMessages: ChatMessage[],
     isRegeneration: boolean
   ) => {
+    const chatId = uuidv4();
+    wsManager.initializeWithChatId(chatId);
     const startingInput = messageContent
     console.log("handleSendMessage")
 
@@ -278,7 +278,7 @@ const handleSendMessage = async (
 
       console.log("handleSendMessage6")
 
-      let currentChat = selectedChat ? { ...selectedChat } : null
+      
 
       const b64Images = newMessageImages.map(image => image.base64)
 
@@ -335,13 +335,15 @@ const handleSendMessage = async (
         setToolInUse
       ).catch(error => {
   console.error("handleHostedChat error:", error);
-  throw error; // Re-throw to be caught by the outer try-catch
+  throw error; 
 });
 console.log("generatedText", generatedText)
+      
 
   
 
       if (!currentChat) {
+
         console.log("currentChat0")
         currentChat = await handleCreateChat(
           chatSettings!,
@@ -352,7 +354,8 @@ console.log("generatedText", generatedText)
           newMessageFiles,
           setSelectedChat,
           setChats,
-          setChatFiles
+          setChatFiles,
+          chatId
         )
         console.log("currentChat1", currentChat)
       } else {
@@ -403,7 +406,8 @@ console.log("generatedText", generatedText)
         setChatMessages,
         setChatFileItems,
         setChatImages,
-        selectedAssistant
+        selectedAssistant,
+        
       )
 
       setIsGenerating(false)

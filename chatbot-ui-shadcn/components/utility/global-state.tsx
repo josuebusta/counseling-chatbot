@@ -27,6 +27,7 @@ import { AssistantImage } from "@/types/images/assistant-image"
 import { VALID_ENV_KEYS } from "@/types/valid-keys"
 import { useRouter } from "next/navigation"
 import { FC, useEffect, useState } from "react"
+import { useRef } from "react"  
 
 interface GlobalStateProps {
   children: React.ReactNode
@@ -37,6 +38,7 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
 
   // PROFILE STORE
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null)
+  const [isInitialMessageSent, setIsInitialMessageSent] = useState(false);
 
   // ITEMS STORE
   const [assistants, setAssistants] = useState<Tables<"assistants">[]>([])
@@ -87,7 +89,7 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
   })
   const [selectedChat, setSelectedChat] = useState<Tables<"chats"> | null>(null)
   const [chatFileItems, setChatFileItems] = useState<Tables<"file_items">[]>([])
-
+  const [chatId, setChatId] = useState<string>("")
   // ACTIVE CHAT STORE
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
   const [firstTokenReceived, setFirstTokenReceived] = useState<boolean>(false)
@@ -204,6 +206,11 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
         profile,
         setProfile,
 
+        // INITIAL MESSAGE STORE
+        isInitialMessageSent,
+        setIsInitialMessageSent,
+       
+
         // ITEMS STORE
         assistants,
         setAssistants,
@@ -265,6 +272,8 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
         setSelectedChat,
         chatFileItems,
         setChatFileItems,
+        chatId,
+        setChatId,
 
         // ACTIVE CHAT STORE
         isGenerating,

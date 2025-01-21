@@ -1,3 +1,5 @@
+'use client'
+
 import Loading from "@/app/[locale]/loading"
 import { useChatHandler } from "@/components/chat/chat-hooks/use-chat-handler"
 import { ChatbotUIContext } from "@/context/context"
@@ -18,7 +20,7 @@ import { ChatInput } from "./chat-input"
 import { ChatMessages } from "./chat-messages"
 import { ChatScrollButtons } from "./chat-scroll-buttons"
 import { ChatSecondaryButtons } from "./chat-secondary-buttons"
-
+import { wsManager } from "@/websocketManager"
 interface ChatUIProps {}
 
 export const ChatUI: FC<ChatUIProps> = ({}) => {
@@ -67,6 +69,8 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
     }
 
     if (params.chatid) {
+      console.log("params.chatid", params.chatid)
+
       fetchData().then(() => {
         handleFocusChatInput()
         setLoading(false)

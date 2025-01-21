@@ -1,3 +1,4 @@
+'use client'
 import { Tables } from "@/supabase/types"
 import {
   ChatFile,
@@ -11,11 +12,14 @@ import {
 import { AssistantImage } from "@/types/images/assistant-image"
 import { VALID_ENV_KEYS } from "@/types/valid-keys"
 import { Dispatch, SetStateAction, createContext } from "react"
+import { useRef } from "react"
 
 interface ChatbotUIContext {
   // PROFILE STORE
   profile: Tables<"profiles"> | null
   setProfile: Dispatch<SetStateAction<Tables<"profiles"> | null>>
+
+  // INITIAL MESSAGE STORE
 
   // ITEMS STORE
   assistants: Tables<"assistants">[]
@@ -39,7 +43,6 @@ interface ChatbotUIContext {
   workspaces: Tables<"workspaces">[]
   setWorkspaces: Dispatch<SetStateAction<Tables<"workspaces">[]>>
 
-  // MODELS STORE
   envKeyMap: Record<string, VALID_ENV_KEYS>
   setEnvKeyMap: Dispatch<SetStateAction<Record<string, VALID_ENV_KEYS>>>
   availableHostedModels: LLM[]
@@ -48,6 +51,10 @@ interface ChatbotUIContext {
   setAvailableLocalModels: Dispatch<SetStateAction<LLM[]>>
   availableOpenRouterModels: OpenRouterLLM[]
   setAvailableOpenRouterModels: Dispatch<SetStateAction<OpenRouterLLM[]>>
+
+  // INITIAL MESSAGE STORE
+  isInitialMessageSent: boolean;
+  setIsInitialMessageSent: Dispatch<SetStateAction<boolean>>;
 
   // WORKSPACE STORE
   selectedWorkspace: Tables<"workspaces"> | null
@@ -78,6 +85,8 @@ interface ChatbotUIContext {
   setSelectedChat: Dispatch<SetStateAction<Tables<"chats"> | null>>
   chatFileItems: Tables<"file_items">[]
   setChatFileItems: Dispatch<SetStateAction<Tables<"file_items">[]>>
+  chatId: string
+  setChatId: Dispatch<SetStateAction<string>>
 
   // ACTIVE CHAT STORE
   abortController: AbortController | null
@@ -124,6 +133,8 @@ interface ChatbotUIContext {
   setNewMessageImages: Dispatch<SetStateAction<MessageImage[]>>
   showFilesDisplay: boolean
   setShowFilesDisplay: Dispatch<SetStateAction<boolean>>
+ 
+  
 
   // RETRIEVAL STORE
   useRetrieval: boolean
@@ -142,7 +153,10 @@ export const ChatbotUIContext = createContext<ChatbotUIContext>({
   // PROFILE STORE
   profile: null,
   setProfile: () => {},
-
+  isInitialMessageSent: false, 
+  setIsInitialMessageSent: () => {},
+  
+  
   // ITEMS STORE
   assistants: [],
   setAssistants: () => {},
@@ -204,6 +218,8 @@ export const ChatbotUIContext = createContext<ChatbotUIContext>({
   setChatSettings: () => {},
   chatFileItems: [],
   setChatFileItems: () => {},
+  chatId: "",
+  setChatId: () => {},
 
   // ACTIVE CHAT STORE
   isGenerating: false,
@@ -262,4 +278,5 @@ export const ChatbotUIContext = createContext<ChatbotUIContext>({
   setSelectedTools: () => {},
   toolInUse: "none",
   setToolInUse: () => {}
+
 })

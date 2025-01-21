@@ -327,7 +327,9 @@ export const handleCreateChat = async (
   newMessageFiles: ChatFile[],
   setSelectedChat: React.Dispatch<React.SetStateAction<Tables<"chats"> | null>>,
   setChats: React.Dispatch<React.SetStateAction<Tables<"chats">[]>>,
-  setChatFiles: React.Dispatch<React.SetStateAction<ChatFile[]>>
+  setChatFiles: React.Dispatch<React.SetStateAction<ChatFile[]>>,
+  existingChatId?: string|null
+
 ) => {
   console.log("createChat1")
   if (!profile) {
@@ -342,11 +344,11 @@ export const handleCreateChat = async (
     if (!profile || !selectedWorkspace || !chatSettings) {
       throw new Error("Missing required parameters");
     }
-
   const createdChat = await createChat({
+    id: existingChatId!,
     user_id: profile.user_id,
     workspace_id: selectedWorkspace.id,
-    assistant_id: selectedAssistant?.id || null,
+    assistant_id: selectedAssistant?.id || undefined,
     context_length: chatSettings.contextLength,
     include_profile_context: chatSettings.includeProfileContext,
     include_workspace_instructions: chatSettings.includeWorkspaceInstructions,
