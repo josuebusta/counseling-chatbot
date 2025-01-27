@@ -150,6 +150,9 @@ export const useChatHandler = () => {
   }, [isPromptPickerOpen, isFilePickerOpen, isToolPickerOpen])
 
   const handleNewChat = async () => {
+    setIsInitialMessageSent(false);
+    window.location.reload();
+    
    
     
     if (!selectedWorkspace) return
