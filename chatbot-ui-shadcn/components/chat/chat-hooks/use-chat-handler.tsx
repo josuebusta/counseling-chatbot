@@ -240,7 +240,14 @@ const handleSendMessage = async (
     isRegeneration: boolean
   ) => {
     const chatId = uuidv4();
-    wsManager.initializeWithChatId(chatId);
+    console.log("is initial message sent?", isInitialMessageSent)
+    if (!isInitialMessageSent) {
+
+      wsManager.initializeWithChatId(chatId);
+      setIsInitialMessageSent(true);
+    }
+      
+
     const startingInput = messageContent
     console.log("handleSendMessage")
 

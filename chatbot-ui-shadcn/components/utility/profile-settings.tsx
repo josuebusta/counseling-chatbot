@@ -1,4 +1,3 @@
-'use client'
 import { ChatbotUIContext } from "@/context/context"
 import {
   PROFILE_CONTEXT_MAX,
@@ -48,10 +47,9 @@ import { TextareaAutosize } from "../ui/textarea-autosize"
 import { WithTooltip } from "../ui/with-tooltip"
 import { ThemeSwitcher } from "./theme-switcher"
 import { wsManager } from '@/websocketManager';
-import { v4 as uuidv4 } from 'uuid';
 
 interface ProfileSettingsProps {}
-let newChatId: string | null = null;
+
 
 
 export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
@@ -94,7 +92,6 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
   const [openrouterAPIKey, setOpenrouterAPIKey] = useState("")
 
   console.log("Component mounted")
-  
 
   // Initialize profile data
 useEffect(() => {
@@ -115,9 +112,6 @@ useEffect(() => {
       console.log("initializeProfile3")
       wsManager.initializeWithUserId(session.user.id); // removed await
       console.log("initializeProfile4")
-     
-      
-      
 
       // // Initialize WebSocket manager with user ID
       // wsManager.initializeWithUserId(session.user.id);
@@ -261,7 +255,6 @@ console.log("Querying for user ID:", session.user.id)
     }
   }, [setProfile, router])
 
-  
 
     const [isInitialMessageSent, setIsInitialMessageSent] = useState(false);
 
@@ -288,8 +281,6 @@ console.log("Querying for user ID:", session.user.id)
 
 //   autoSendHello()
 // }, [chatSettings, selectedWorkspace, hasInitialized])
-
-
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -412,7 +403,8 @@ console.log("Querying for user ID:", session.user.id)
 
   // if (!profile) return null
 
-  
+ 
+
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
@@ -881,5 +873,3 @@ console.log("Querying for user ID:", session.user.id)
     </Sheet>
   )
 }
-
-

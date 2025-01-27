@@ -108,7 +108,7 @@ class TrackableGroupChatManager(autogen.GroupChatManager):
 
 
 class HIVPrEPCounselor:
-    def __init__(self, websocket: WebSocket, user_id: str, chat_id: str):
+    def __init__(self, websocket: WebSocket, user_id: str, chat_id: str = None):
         load_dotenv()
         self.user_id = user_id
         self.chat_id = chat_id 
