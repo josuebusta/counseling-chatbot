@@ -47,7 +47,7 @@ async def run_inactive_chat_checker():
             
             logger.info(f"Check #{counter} completed")
             counter += 1
-            await asyncio.sleep(300)  # 5 minutes
+            await asyncio.sleep(300)  
             
         except Exception as e:
             logger.error(f"Error in check #{counter}: {e}")
