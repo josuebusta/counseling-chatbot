@@ -25,6 +25,7 @@ import json
 from supabase import create_client
 import os
 from datetime import datetime, timezone
+from CHIA.evaluation import evaluate_counseling_response
 
 
 
@@ -442,34 +443,82 @@ async def handle_inactivity(user_id, last_activity_time):
 #     except Exception as e:
 #         print(f"Error checking inactive chats: {e}")
 
-# Initialize the Supabase client (replace with your project URL and API key)
+
+async def get_chat_history():
+    try:
+        # Fetch non-evaluated chat IDs
+        max_chats = 50
+        non_evaluated_chats = supabase.table("chats") \
+            .select("id") \
+            .is_("chat_evaluation_sent", None) \
+            .execute()
+
+        chat_ids = [chat["id"] for chat in non_evaluated_chats.data or []]
+        
+        if not chat_ids:
+            print("No non-evaluated chats found.")
+            return None
+        chat_ids = chat_ids[:max_chats]
+
+        for chat_id in chat_ids:
+            history_response = supabase.table("messages") \
+                .select("content") \
+                .eq("chat_id", chat_id) \
+                .eq("role", "assistant") \
+                .execute()
+
+            chat_history = [msg["content"] for msg in history_response.data or []]
+
+            if not chat_history:
+                print("No chat messages found.")
+                return None
+
+            # Evaluate chat history
+            evaluate_counseling_response(chat_id, chat_history)
+            print(f"Evaluated {len(chat_history)} chat messages")
+
+        # Mark chats as evaluated
+        supabase.table("chats") \
+            .update({"chat_evaluation_sent": True}) \
+            .in_("id", chat_ids) \
+            .execute()
+
+        return chat_history
+
+    except Exception as e:
+        print(f"Error processing chat history: {e}")
+        return None
+
+
+
+
 async def check_inactive_chats():
     try:
-        # Fetch support requests with related chat data where notified is False
+    
         response = supabase.table("support_requests")\
             .select("*, chats(updated_at)")\
             .eq("notified", False)\
             .execute()
         
-        # Remove error check since response.error doesn't exist
+       
         support_requests = response.data
         print("support_requests", support_requests)
         if not support_requests:
             print("No support requests found.")
             return
 
-        # Get the current time
+        #current time
         current_time = datetime.now(timezone.utc)
 
         # Filter support requests where the last activity was more than 5 minutes ago
         updates = []
         for request in support_requests:
-            print("request", request)
+            # print("request", request)
             try:
                 # Only process if chat_id exists
                 if request['chat_id']:
-                    print("chat_id", request['chat_id'])
-                    print("chat id exists")
+                    # print("chat_id", request['chat_id'])
+                    # print("chat id exists")
                     # Fetch chat data separately
                     # chat_response = supabase.table("chats")\
                     #     .select("*")\
@@ -479,7 +528,11 @@ async def check_inactive_chats():
                         .select("updated_at")\
                         .eq("id", request['chat_id'].strip())\
                         .execute()
-                    
+                    # print("chat_response", chat_response)
+
+        
+                        
+          
                     
                     updated_at_str = chat_response.data[0]['updated_at']
                     if updated_at_str:
@@ -491,6 +544,9 @@ async def check_inactive_chats():
                     print("updated at", updated_at)
                     if (current_time - updated_at).total_seconds() > 300:
                         updates.append(request["id"])
+                        print("updates", updates)
+                        # send chat history evaluation to research assistant
+                        
                         print(f"Adding request {request['id']} to updates - inactive for more than 5 minutes")
 
             except Exception as e:

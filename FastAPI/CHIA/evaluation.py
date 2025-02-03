@@ -2,6 +2,10 @@ from langchain_openai import ChatOpenAI
 import json
 from datetime import datetime, timezone
 from typing import TypedDict
+from supabase import create_client
+import supabase
+import os
+import uuid
 
 class EvaluationResult(TypedDict):
     grounded: bool
@@ -40,7 +44,12 @@ class HIVCounselingEvaluation:
     def __init__(self, model="gpt-4o-mini"):
         self.evaluator = ChatOpenAI(model=model, temperature=0)
 
-def evaluate_counseling_response(context_file_path: str, chat_response: str) -> EvaluationResult:
+supabase = create_client(
+    os.environ.get("NEXT_PUBLIC_SUPABASE_URL"),
+    os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+)
+
+def evaluate_counseling_response(chat_id: str, chat_response: str, context_file_path: str = "/Users/amaris/Desktop/AI_coder/counselling-chatbot/FastAPI/embeddings/HIV_PrEP_knowledge_embedding.json") -> EvaluationResult:
     """
     Evaluates if an HIV counseling chat response is properly grounded in the reference context.
     
@@ -92,6 +101,18 @@ def evaluate_counseling_response(context_file_path: str, chat_response: str) -> 
                 if field not in result:
                     print(f"Missing required field: {field}")
                     result[field] = False if field != "reasoning" else "Evaluation failed to produce complete results"
+
+            insert_result = supabase.table("evaluations").insert({
+                "chat_id": chat_id,
+                "chat_response": chat_response,
+                "evaluation_result": result
+            }).execute()
+
+            if insert_result:
+                print("Evaluation result successfully saved to the database.")
+            else:
+                print("Error inserting evaluation result")
+
             
             return result
             
@@ -118,9 +139,12 @@ def evaluate_counseling_response(context_file_path: str, chat_response: str) -> 
         print(f"Unexpected error: {e}")
         return None
 
-# Example usage:
-if __name__ == "__main__":
-    context_file_path = "/Users/amaris/Desktop/AI_coder/counselling-chatbot/FastAPI/embeddings/HIV_PrEP_knowledge_embedding.json"
-    chat_response = "HIV stands for Human Immunodeficiency Virus."
-    result = evaluate_counseling_response(context_file_path, chat_response)
-    print(f"Evaluation result: {result}")
+# test
+# if __name__ == "__main__":
+#     context_file_path = "/Users/amaris/Desktop/AI_coder/counselling-chatbot/FastAPI/embeddings/HIV_PrEP_knowledge_embedding.json"
+#     chat_response = "HIV stands for Human Immunodeficiency Virus."
+#     chat_id = str(uuid.uuid4())
+#     result = evaluate_counseling_response(chat_id, "HIV stands for Human Immunodeficiency Virus.")
+#     print(f"Evaluation result: {result}")
+
+

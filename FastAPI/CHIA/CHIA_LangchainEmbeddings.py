@@ -42,7 +42,7 @@ class TrackableGroupChatManager(autogen.GroupChatManager):
     def _format_message(self, message, sender) -> str:
         """Format the message for display, handling various message types"""
         try:
-            # Skip function calls and empty messages
+       
             if isinstance(message, dict):
                 if 'function_call' in message or 'tool_calls' in message:
                     return None
