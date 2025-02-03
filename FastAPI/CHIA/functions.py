@@ -446,7 +446,7 @@ async def handle_inactivity(user_id, last_activity_time):
 
 async def get_chat_history():
     try:
-        # Fetch non-evaluated chat IDs
+
         max_chats = 50
         non_evaluated_chats = supabase.table("chats") \
             .select("id") \
@@ -461,27 +461,44 @@ async def get_chat_history():
         chat_ids = chat_ids[:max_chats]
 
         for chat_id in chat_ids:
-            history_response = supabase.table("messages") \
-                .select("content") \
-                .eq("chat_id", chat_id) \
-                .eq("role", "assistant") \
-                .execute()
+            current_time = datetime.now(timezone.utc)
+      
+            chat_response = supabase.table("chats")\
+                            .select("updated_at")\
+                            .eq("id", chat_id.strip())\
+                            .execute()
+            
+            updated_at_str = chat_response.data[0]['updated_at']
+            if updated_at_str:
+                updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
+            else:
+                print("No updated_at found for chat_id:", chat_id)
+                continue
+                
+            print("updated at", updated_at)
+            if (current_time - updated_at).total_seconds() > 300:
+            
+                history_response = supabase.table("messages") \
+                    .select("content") \
+                    .eq("chat_id", chat_id) \
+                    .eq("role", "assistant") \
+                    .execute()
 
-            chat_history = [msg["content"] for msg in history_response.data or []]
+                chat_history = [msg["content"] for msg in history_response.data or []]
 
-            if not chat_history:
-                print("No chat messages found.")
-                return None
+                if not chat_history:
+                    print("No chat messages found.")
+                    return None
 
-            # Evaluate chat history
-            evaluate_counseling_response(chat_id, chat_history)
-            print(f"Evaluated {len(chat_history)} chat messages")
+                # Evaluate chat history
+                evaluate_counseling_response(chat_id, chat_history)
+                print(f"Evaluated {len(chat_history)} chat messages")
 
-        # Mark chats as evaluated
-        supabase.table("chats") \
-            .update({"chat_evaluation_sent": True}) \
-            .in_("id", chat_ids) \
-            .execute()
+                # Mark chats as evaluated
+                supabase.table("chats") \
+                    .update({"chat_evaluation_sent": True}) \
+                    .in_("id", chat_ids) \
+                    .execute()
 
         return chat_history
 
