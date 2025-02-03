@@ -146,56 +146,7 @@ def search_provider(zip_code: str) -> Dict:
     except Exception as e:
         return "I'm sorry, I couldn't find any providers near you. Please try again with a different ZIP code."
 
-# # Example usage:
-# print(search_provider("02912"))
 
-
-# async def assess_ttm_stage_single_question(websocket: WebSocket) -> str:
-#     """
-#     Assess the TTM stage of change based on a single validated question and response.
-    
-#     Parameters:
-#     response (str): The individual's response to the question:
-#                     "Are you currently engaging in Prep uptake on a regular basis?"
-#                     Valid response options:
-#                     - "No, and I do not intend to start in the next 6 months" (Precontemplation)
-#                     - "No, but I intend to start in the next 6 months" (Contemplation)
-#                     - "No, but I intend to start in the next 30 days" (Preparation)
-#                     - "Yes, I have been for less than 6 months" (Action)
-#                     - "Yes, I have been for more than 6 months" (Maintenance)
-    
-#     Returns:
-#     str: The stage of change (Precontemplation, Contemplation, Preparation, Action, Maintenance).
-#     """
-
-#     question = "Of course, I will ask you a single question to assess your status of change. \n Are you currently engaging in Prep uptake on a regular basis? Please respond with the number corresponding to your answer: \n 1. No, and I do not intend to start in the next 6 months. \n 2. No, but I intend to start in the next 6 months. \n 3. No, but I intend to start in the next 30 days. \n 4. Yes, I have been for less than 6 months. \n 5. Yes, I have been for more than 6 months."
-
-
-    
-#     response = ""
-#     stage = ""
-    
-#     # Map the response to the corresponding TTM stage
-#     while response not in ["1", "2", "3", "4", "5"]:
-#         await websocket.send_text(question)
-#         # Receive the user's response through WebSocket
-#         response = await websocket.receive_text()
-#         response = response.strip().lower().strip('"')
-#         if response == "1":
-#             stage = "Precontemplation"
-#         elif response == "2":
-#             stage = "Contemplation"
-#         elif response == "3":
-#             stage = "Preparation"
-#         elif response == "4":
-#             stage = "Action"
-#         elif response == "5":
-#             stage = "Maintenance"
-#         else:
-#             stage = "Unclassified"  # For unexpected or invalid responses
-    
-#     answer = f"The individual is in the '{stage}' stage of change." if stage != "Unclassified" else "Please respond with the number corresponding to your answer: 1. No, and I do not intend to start in the next 6 months 2. No, but I intend to start in the next 6 months 3. No, but I intend to start in the next 30 days 4. Yes, I have been for less than 6 months 5. Yes, I have been for more than 6 months"
-#     return answer
 async def assess_ttm_stage_single_question(websocket: WebSocket) -> str:
     question = """Of course, I will ask you a single question to assess your status of change. 
 Are you currently engaging in Prep uptake on a regular basis? Please respond with the number corresponding to your answer: 
@@ -340,8 +291,8 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
             return "Invalid response format."
         
         # Step 2: Check if the user agrees
-        # if "yes" not in answer:
-        #     return "I understand. Please let me know if you change your mind."
+        if "yes" not in answer:
+            return "I understand. Please let me know if you change your mind. What else can I help you with?"
         
         # Step 3: Ask for the support type
         await websocket.send_text(
@@ -376,11 +327,11 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
             "chat_id": chat_id
         }).execute()
 
-        return f"Thank you for sharing that. When your chat session ends, a research assistant will reach out to provide {support_type} support."
+        return f"Thank you for sharing that. When your chat session ends, a research assistant will reach out to provide {support_type} support. What else can I help you with?"
 
     except Exception as e:
         print(f"Error recording support request: {e}")
-        return "I'm having trouble recording your request. Please let me know if you'd like to try again."
+        # return "I'm having trouble recording your request. Please let me know if you'd like to try again."
 
 
 async def handle_inactivity(user_id, last_activity_time):
@@ -398,59 +349,13 @@ async def handle_inactivity(user_id, last_activity_time):
     print(f"Sending email notification to user {user_id} about inactivity since {last_activity_time}")
 
 
-
-# async def check_inactive_chats():
-#     try:
-#         # Fetch last activity times from chats and join with support_requests
-#         response = supabase.table("support_requests")\
-#             .select("*, chats!support_requests_chat_id_fkey(id, updated_at)")\
-#             .eq("notified", False)\
-#             .execute()
-        
-#         print(response)
-#         # Access the data attribute from the response
-#         data = response.data
-#         print(data)
-        
-#         if not data:
-#             print("No inactive chats found.")
-#             return
-
-#         # Current time
-#         current_time = datetime.now()
-
-#         # Loop through the results and check for inactivity
-#         for record in data:
-#             if 'chats' in record and record['chats']:
-#                 chat_id = record['chats'][0].get('chat_id')
-#                 last_activity_time = datetime.fromisoformat(record['chats'][0].get('updated_at'))
-#                 print("last_activity_time", last_activity_time)
-                
-#                 # Calculate time difference
-#                 time_diff = current_time - last_activity_time
-#                 print("time_diff", time_diff)
-#                 print("current_time", current_time)
-#                 print("last_activity_time", last_activity_time)
-#                 if time_diff > timedelta(minutes=5):
-#                     # Handle inactivity (e.g., trigger email or log it)
-#                     await handle_inactivity(chat_id, last_activity_time)
-
-#                     # Optionally, update the `notified` field in support_requests
-#                     supabase.table("support_requests") \
-#                         .update({"notified": True}) \
-#                         .eq("chat_id", record['id']) \
-#                         .execute()
-#     except Exception as e:
-#         print(f"Error checking inactive chats: {e}")
-
-
 async def get_chat_history():
     try:
 
         max_chats = 50
         non_evaluated_chats = supabase.table("chats") \
             .select("id") \
-            .is_("chat_evaluation_sent", None) \
+            .is_("chat_evaluation_sent", False) \
             .execute()
 
         chat_ids = [chat["id"] for chat in non_evaluated_chats.data or []]

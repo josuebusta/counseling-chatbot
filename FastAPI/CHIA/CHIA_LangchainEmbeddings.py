@@ -283,10 +283,23 @@ class HIVPrEPCounselor:
 
         notify_assistant_bot = autogen.AssistantAgent(
             name="notify_assistant_bot",
-            system_message="""ONLY intervene when the patient shows signs of distress. Only intervene when the patient shows signs of distress (sadness, anxiety, stress). It is critical that you let the counselor lead the conversation. 
-        
-            
-            NEVER skip steps or assume information - must get explicit responses.""",
+            system_message="""Your role is to ONLY intervene when the patient EXPLICITLY asks for support. 
+
+                Critical guidelines:
+                - Do NOT offer support proactively
+                - Do NOT respond unless the patient directly says "I need support" or "I want help"
+                - Let the counselor lead the entire conversation
+                - Wait for a clear, direct request from the patient
+
+                If the patient explicitly requests support:
+                - Ask clarifying questions about the type of support needed
+                - Facilitate connecting with appropriate resources
+                - Follow the patient's lead precisely
+
+                NEVER:
+                - Assume support is needed
+                - Interrupt the counseling conversation
+                - Make unsolicited support offers""",
             is_termination_msg=lambda x: self.check_termination(x),
             llm_config=self.config_list,
             human_input_mode="NEVER",
@@ -383,7 +396,7 @@ class HIVPrEPCounselor:
         # Patient can receive responses from any agent
         patient: [],
         status_bot: [status_bot, counselor, FAQ_agent, search_bot, assessment_bot, notify_assistant_bot],
-        notify_assistant_bot: [notify_assistant_bot, counselor, FAQ_agent, search_bot, assessment_bot, status_bot]
+        notify_assistant_bot: [notify_assistant_bot, counselor, FAQ_agent, search_bot, assessment_bot, status_bot, patient]
     }
         
         self.group_chat = autogen.GroupChat(
