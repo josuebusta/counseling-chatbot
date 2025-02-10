@@ -81,8 +81,11 @@
 #         )
 
 #         # Register functions with the kernel
-#         self.kernel.add_plugin(HIVHelperFunctions(), plugin_name="hiv_prep")
-    
+#         # self.kernel.add_plugin(HIVHelperFunctions(), plugin_name="hiv_prep")
+#         helper_functions = HIVHelperFunctions(self.websocket, self.chat_id)
+#         self.kernel.add_plugin(helper_functions, plugin_name="hiv_prep")
+       
+            
 #     async def send_message(self, message: str):
 #         """Send message to websocket with error handling"""
 #         try:
@@ -157,7 +160,6 @@
 #         except Exception as e:
 #             print(f"Chat error: {e}")
 #             raise
-
 
 from dotenv import load_dotenv
 import json
@@ -260,6 +262,7 @@ class TrackableGroupChatManager(autogen.GroupChatManager):
     async def send_message(self, message: str):
         """Send message to websocket with deduplication"""
         try:
+            print("sending message")
             if message and message != self._last_message:
                 await self.websocket.send_text(message)
                 self._last_message = message
@@ -281,7 +284,7 @@ class HIVPrEPCounselor:
             raise ValueError("API key not found. Please set OPENAI_API_KEY in your .env file.")
 
         self.config_list = {
-            "model": "gpt-4",
+            "model": "gpt-4o-mini",
             "api_key": self.api_key
         }
 
@@ -299,7 +302,7 @@ class HIVPrEPCounselor:
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         all_splits = text_splitter.split_documents(data)
         vectorstore = Chroma.from_documents(documents=all_splits, embedding=OpenAIEmbeddings(openai_api_key=self.api_key))
-        llm = ChatOpenAI(model_name="gpt-4", temperature=0)
+        llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
         retriever = vectorstore.as_retriever()
         self.qa_chain = RetrievalQA.from_chain_type(
             llm, retriever=retriever, chain_type_kwargs={"prompt": prompt}
@@ -411,8 +414,9 @@ class HIVPrEPCounselor:
             caller=counselor_assistant,
             executor=counselor,
             name="record_support_request",
-            description="""Do not immediately call this function. 
-            Wait for the user to show signs of distress over time (DO NOT ACTIVATE THE FIRS TIME) or requests human support.
+            description="""Do not immediately call this function.
+            Wait for the user to show signs of distress over time (DO NOT ACTIVATE THE FIRST TIME) or requests human support.
+            For example, if the user suggests that they want 
             First ask if they are sure they want human support. 
             If they do, then call this function. If they don't, then do not call this function.""",
         )
@@ -528,22 +532,22 @@ class HIVPrEPCounselor:
             "message": message
         })
     
-    def get_latest_response(self):
-        """Get the latest valid response"""
-        try:
-            if not self.group_chat.messages:
-                return None
+    # def get_latest_response(self):
+    #     """Get the latest valid response"""
+    #     try:
+    #         if not self.group_chat.messages:
+    #             return None
                 
-            for message in reversed(self.group_chat.messages):
-                if isinstance(message, dict) and message.get('content'):
-                    return message['content']
-                elif isinstance(message, str):
-                    return message
+    #         for message in reversed(self.group_chat.messages):
+    #             if isinstance(message, dict) and message.get('content'):
+    #                 return message['content']
+    #             elif isinstance(message, str):
+    #                 return message
                     
-            return None
-        except Exception as e:
-            print(f"Error getting response: {e}")
-            return None
+    #         return None
+    #     except Exception as e:
+    #         print(f"Error getting response: {e}")
+    #         return None
 
     async def initiate_chat(self, user_input: str = None):
         if not user_input:
@@ -551,9 +555,10 @@ class HIVPrEPCounselor:
             
         try:
             self.update_history(self.agents[2], user_input, self.agents[2])
+            print("user_input", user_input)
             await self.agents[1].a_initiate_chat(
                 recipient=self.manager,
-                message=user_input,
+                message= str(user_input),
                 websocket=self.websocket,
                 clear_history=False,
                 system_message="""Ensure counselor responds first using FAQ agent's knowledge, 

@@ -79,7 +79,19 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
+
             parsed_data = json.loads(data)
+
+            required_fields = ['type', 'content', 'messageId']
+            if all(field in parsed_data for field in required_fields):
+                message_type = parsed_data['type']
+                content = parsed_data['content']
+                message_id = parsed_data['messageId']
+                print(f"Message Type: {message_type}, Content: {content}, Message ID: {message_id}")
+            else:
+                print("Invalid message received:", parsed_data)
+
+            
             print("parsed_data", parsed_data)
             message_type = parsed_data.get('type')
             print("message_type", message_type)
@@ -113,22 +125,23 @@ async def websocket_endpoint(websocket: WebSocket):
                 continue
             
          
-            if message_type == "message" and workflow_manager:
+            if message_type == "message":
            
                 # Check if message is within deduplication window
                 try:
-                    print("parsed_data", parsed_data)
                     if "chat_id" in parsed_data:
                         continue
-                    await workflow_manager.initiate_chat(content)
-                    response = workflow_manager.get_latest_response()
+                    print("parsed_data message", parsed_data)
+                    await workflow_manager.initiate_chat(parsed_data)
+                    # response = workflow_manager.get_latest_response()
+                    # print("response", response)
                     
-                    if response:
-                        await websocket.send_text(json.dumps({
-                            "type": "chat_response",
-                            "messageId": message_id,
-                            "content": response
-                        }))
+                    # if response:
+                    #     await websocket.send_text(json.dumps({
+                    #         "type": "chat_response",
+                    #         "messageId": message_id,
+                    #         "content": response
+                    #     }))
                 except Exception as e:
                     print(f"Error processing message: {e}")
                     await websocket.send_text(json.dumps({

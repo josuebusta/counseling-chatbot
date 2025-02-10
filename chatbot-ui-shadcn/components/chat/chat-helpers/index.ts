@@ -330,207 +330,209 @@ export const processResponse = async (
 };
 
 
-export const handleCreateChat = async (
-  chatSettings: ChatSettings,
-  profile: Tables<"profiles">,
-  selectedWorkspace: Tables<"workspaces">,
-  messageContent: string,
-  selectedAssistant: Tables<"assistants">,
-  newMessageFiles: ChatFile[],
-  setSelectedChat: React.Dispatch<React.SetStateAction<Tables<"chats"> | null>>,
-  setChats: React.Dispatch<React.SetStateAction<Tables<"chats">[]>>,
-  setChatFiles: React.Dispatch<React.SetStateAction<ChatFile[]>>,
-  existingChatId?: string|null
+// export const handleCreateChat = async (
+//   chatSettings: ChatSettings,
+//   profile: Tables<"profiles">,
+//   selectedWorkspace: Tables<"workspaces">,
+//   messageContent: string,
+//   selectedAssistant: Tables<"assistants">,
+//   newMessageFiles: ChatFile[],
+//   setSelectedChat: React.Dispatch<React.SetStateAction<Tables<"chats"> | null>>,
+//   setChats: React.Dispatch<React.SetStateAction<Tables<"chats">[]>>,
+//   setChatFiles: React.Dispatch<React.SetStateAction<ChatFile[]>>,
+//   existingChatId?: string|null
 
-) => {
-  console.log("createChat1")
-  if (!profile) {
-    console.error("No profile available");
-  }
-  console.log("Checking inputs:", {
-      profile: !!profile,
-      workspace: !!selectedWorkspace,
-      settings: !!chatSettings
-    });
+// ) => {
+//   console.log("createChat1")
+//   if (!profile) {
+//     console.error("No profile available");
+//   }
+//   console.log("Checking inputs:", {
+//       profile: !!profile,
+//       workspace: !!selectedWorkspace,
+//       settings: !!chatSettings
+//     });
 
-    if (!profile || !selectedWorkspace || !chatSettings) {
-      throw new Error("Missing required parameters");
-    }
-  const createdChat = await createChat({
-    id: existingChatId!,
-    user_id: profile.user_id,
-    workspace_id: selectedWorkspace.id,
-    assistant_id: selectedAssistant?.id || undefined,
-    context_length: chatSettings.contextLength,
-    include_profile_context: chatSettings.includeProfileContext,
-    include_workspace_instructions: chatSettings.includeWorkspaceInstructions,
-    model: chatSettings.model,
-    name: messageContent.substring(0, 100),
-    prompt: chatSettings.prompt,
-    temperature: chatSettings.temperature,
-    embeddings_provider: chatSettings.embeddingsProvider
-  })
-  console.log("createdChat9")
-  console.log("createdChat2", createdChat)
-  setSelectedChat(createdChat)
-  console.log("createdChat3", createdChat)
-  setChats(chats => [createdChat, ...chats])
-  console.log("createdChat", createdChat)
+//     if (!profile || !selectedWorkspace || !chatSettings) {
+//       throw new Error("Missing required parameters");
+//     }
+//   const createdChat = await createChat({
+//     id: existingChatId!,
+//     user_id: profile.user_id,
+//     workspace_id: selectedWorkspace.id,
+//     assistant_id: selectedAssistant?.id || undefined,
+//     context_length: chatSettings.contextLength,
+//     include_profile_context: chatSettings.includeProfileContext,
+//     include_workspace_instructions: chatSettings.includeWorkspaceInstructions,
+//     model: chatSettings.model,
+//     name: messageContent.substring(0, 100),
+//     prompt: chatSettings.prompt,
+//     temperature: chatSettings.temperature,
+//     embeddings_provider: chatSettings.embeddingsProvider
+//   })
+//   console.log("createdChat9")
+//   console.log("createdChat2", createdChat)
+//   setSelectedChat(createdChat)
+//   console.log("createdChat3", createdChat)
+//   setChats(chats => [createdChat, ...chats])
+//   console.log("createdChat", createdChat)
 
-  await createChatFiles(
-    newMessageFiles.map(file => ({
-      user_id: profile.user_id,
-      chat_id: createdChat.id,
-      file_id: file.id
-    }))
-  )
+//   await createChatFiles(
+//     newMessageFiles.map(file => ({
+//       user_id: profile.user_id,
+//       chat_id: createdChat.id,
+//       file_id: file.id
+//     }))
+//   )
 
-  setChatFiles(prev => [...prev, ...newMessageFiles])
-  console.log("createdChatFiles", newMessageFiles)
+//   setChatFiles(prev => [...prev, ...newMessageFiles])
+//   console.log("createdChatFiles", newMessageFiles)
 
-  return createdChat
-}
+//   return createdChat
+// }
 
-export const handleCreateMessages = async (
-  chatMessages: ChatMessage[],
-  currentChat: Tables<"chats">,
-  profile: Tables<"profiles">,
-  modelData: LLM,
-  messageContent: string,
-  generatedText: string,
-  newMessageImages: MessageImage[],
-  isRegeneration: boolean,
-  retrievedFileItems: Tables<"file_items">[],
-  setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
-  setChatFileItems: React.Dispatch<
-    React.SetStateAction<Tables<"file_items">[]>
-  >,
-  setChatImages: React.Dispatch<React.SetStateAction<MessageImage[]>>,
-  selectedAssistant: Tables<"assistants"> | null
-) => {
-  const finalUserMessage: TablesInsert<"messages"> = {
-    id: uuidv4(),
-    chat_id: currentChat.id,
-    assistant_id: null,
-    user_id: profile.user_id,
-    content: messageContent,
-    model: modelData.modelId,
-    role: "user",
-    sequence_number: chatMessages.length,
-    image_paths: []
-  }
-  console.log("finalUserMessage", finalUserMessage)
+// export const handleCreateMessages = async (
+//   chatMessages: ChatMessage[],
+//   currentChat: Tables<"chats">,
+//   profile: Tables<"profiles">,
+//   modelData: LLM,
+//   messageContent: string,
+//   generatedText: string,
+//   newMessageImages: MessageImage[],
+//   isRegeneration: boolean,
+//   retrievedFileItems: Tables<"file_items">[],
+//   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
+//   setChatFileItems: React.Dispatch<
+//     React.SetStateAction<Tables<"file_items">[]>
+//   >,
+//   setChatImages: React.Dispatch<React.SetStateAction<MessageImage[]>>,
+//   selectedAssistant: Tables<"assistants"> | null
+// ) => {
+//   const finalUserMessage: TablesInsert<"messages"> = {
+//     id: uuidv4(),
+//     chat_id: currentChat.id,
+//     assistant_id: null,
+//     user_id: profile.user_id,
+//     content: messageContent,
+//     model: modelData.modelId,
+//     role: "user",
+//     sequence_number: chatMessages.length,
+//     image_paths: []
+//   }
+//   console.log("finalUserMessage 1", finalUserMessage)
 
-  const finalAssistantMessage: TablesInsert<"messages"> = {
-    id: uuidv4(),
-    chat_id: currentChat.id,
-    assistant_id: selectedAssistant?.id || null,
-    user_id: profile.user_id,
-    content: generatedText,
-    model: modelData.modelId,
-    role: "assistant",
-    sequence_number: chatMessages.length + 1,
-    image_paths: []
-  }
+  
 
-  console.log("final assistant message", finalAssistantMessage)
-  let finalChatMessages: ChatMessage[] = []
+//   const finalAssistantMessage: TablesInsert<"messages"> = {
+//     id: uuidv4(),
+//     chat_id: currentChat.id,
+//     assistant_id: selectedAssistant?.id || null,
+//     user_id: profile.user_id,
+//     content: generatedText,
+//     model: modelData.modelId,
+//     role: "assistant",
+//     sequence_number: chatMessages.length + 1,
+//     image_paths: []
+//   }
 
-  if (isRegeneration) {
-    const lastStartingMessage = chatMessages[chatMessages.length - 1].message
+//   console.log("final assistant message", finalAssistantMessage)
+//   let finalChatMessages: ChatMessage[] = []
 
-    const updatedMessage = await updateMessage(lastStartingMessage.id, {
-      ...lastStartingMessage,
-      content: generatedText
-    })
-    console.log("updatedMessage", updatedMessage)
-    chatMessages[chatMessages.length - 1].message = updatedMessage
+//   if (isRegeneration) {
+//     const lastStartingMessage = chatMessages[chatMessages.length - 1].message
 
-    finalChatMessages = [...chatMessages]
+//     const updatedMessage = await updateMessage(lastStartingMessage.id, {
+//       ...lastStartingMessage,
+//       content: generatedText
+//     })
+//     console.log("updatedMessage", updatedMessage)
+//     chatMessages[chatMessages.length - 1].message = updatedMessage
 
-    setChatMessages(finalChatMessages)
-    console.log("finalChatMessages", finalChatMessages)
-  } else {
-    console.log("finalUserMessage", finalUserMessage)
-    const createdMessages = await createMessages([
-        finalUserMessage, 
-        finalAssistantMessage
-      ]).catch(error => {
-        console.error("Failed to create messages:", error);
-        throw error;
-      });
+//     finalChatMessages = [...chatMessages]
 
-    // avoid duplicates
-    console.log("createdMessages2")
-    if (createdMessages.length > 1){
-      console.log("createdMessages too long")
-      return
-    }
-    console.log("createdMessages", createdMessages)
+//     setChatMessages(finalChatMessages)
+//     console.log("finalChatMessages", finalChatMessages)
+//   } else {
+//     console.log("finalUserMessage 2", finalUserMessage)
+//     const createdMessages = await createMessages([
+//         finalUserMessage, 
+//         finalAssistantMessage
+//       ]).catch(error => {
+//         console.error("Failed to create messages:", error);
+//         throw error;
+//       });
 
-    // Upload each image (stored in newMessageImages) for the user message to message_images bucket
-    const uploadPromises = newMessageImages
-      .filter(obj => obj.file !== null)
-      .map(obj => {
-        let filePath = `${profile.user_id}/${currentChat.id}/${
-          createdMessages[0].id
-        }/${uuidv4()}`
+//     // avoid duplicates
+//     console.log("createdMessages2")
+//     if (createdMessages.length > 1){
+//       console.log("createdMessages too long")
+//       return
+//     }
+//     console.log("createdMessages", createdMessages)
 
-        return uploadMessageImage(filePath, obj.file as File).catch(error => {
-          console.error(`Failed to upload image at ${filePath}:`, error)
-          return null
-        })
-      })
+//     // Upload each image (stored in newMessageImages) for the user message to message_images bucket
+//     const uploadPromises = newMessageImages
+//       .filter(obj => obj.file !== null)
+//       .map(obj => {
+//         let filePath = `${profile.user_id}/${currentChat.id}/${
+//           createdMessages[0].id
+//         }/${uuidv4()}`
 
-    const paths = (await Promise.all(uploadPromises)).filter(
-      Boolean
-    ) as string[]
+//         return uploadMessageImage(filePath, obj.file as File).catch(error => {
+//           console.error(`Failed to upload image at ${filePath}:`, error)
+//           return null
+//         })
+//       })
 
-    setChatImages(prevImages => [
-      ...prevImages,
-      ...newMessageImages.map((obj, index) => ({
-        ...obj,
-        messageId: createdMessages[0].id,
-        path: paths[index]
-      }))
-    ])
+//     const paths = (await Promise.all(uploadPromises)).filter(
+//       Boolean
+//     ) as string[]
 
-    const updatedMessage = await updateMessage(createdMessages[0].id, {
-      ...createdMessages[0],
-      image_paths: paths
-    })
+//     setChatImages(prevImages => [
+//       ...prevImages,
+//       ...newMessageImages.map((obj, index) => ({
+//         ...obj,
+//         messageId: createdMessages[0].id,
+//         path: paths[index]
+//       }))
+//     ])
 
-    const createdMessageFileItems = await createMessageFileItems(
-      retrievedFileItems.map(fileItem => {
-        return {
-          user_id: profile.user_id,
-          message_id: createdMessages[1].id,
-          file_item_id: fileItem.id
-        }
-      })
-    )
+//     const updatedMessage = await updateMessage(createdMessages[0].id, {
+//       ...createdMessages[0],
+//       image_paths: paths
+//     })
 
-    finalChatMessages = [
-      ...chatMessages,
-      {
-        message: updatedMessage,
-        fileItems: []
-      },
-      {
-        message: createdMessages[1],
-        fileItems: retrievedFileItems.map(fileItem => fileItem.id)
-      }
-    ]
+//     const createdMessageFileItems = await createMessageFileItems(
+//       retrievedFileItems.map(fileItem => {
+//         return {
+//           user_id: profile.user_id,
+//           message_id: createdMessages[1].id,
+//           file_item_id: fileItem.id
+//         }
+//       })
+//     )
 
-    setChatFileItems(prevFileItems => {
-      const newFileItems = retrievedFileItems.filter(
-        fileItem => !prevFileItems.some(prevItem => prevItem.id === fileItem.id)
-      )
+//     finalChatMessages = [
+//       ...chatMessages,
+//       {
+//         message: updatedMessage,
+//         fileItems: []
+//       },
+//       {
+//         message: createdMessages[1],
+//         fileItems: retrievedFileItems.map(fileItem => fileItem.id)
+//       }
+//     ]
 
-      return [...prevFileItems, ...newFileItems]
-    })
-    console.log("finalChatFileItems", finalChatMessages)
+//     setChatFileItems(prevFileItems => {
+//       const newFileItems = retrievedFileItems.filter(
+//         fileItem => !prevFileItems.some(prevItem => prevItem.id === fileItem.id)
+//       )
 
-    setChatMessages(finalChatMessages)
-  }
-}
+//       return [...prevFileItems, ...newFileItems]
+//     })
+//     console.log("finalChatFileItems", finalChatMessages)
+
+//     setChatMessages(finalChatMessages)
+//   }
+// }
