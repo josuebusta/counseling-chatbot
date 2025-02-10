@@ -1,3 +1,164 @@
+# from semantic_kernel import Kernel
+# from semantic_kernel.functions.kernel_arguments import KernelArguments
+
+# from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion, OpenAIChatPromptExecutionSettings
+# from semantic_kernel.contents.chat_history import ChatHistory
+# from semantic_kernel.prompt_template.prompt_template_config import PromptTemplateConfig
+# from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
+# from .function_class import HIVHelperFunctions
+
+# from fastapi import WebSocket
+# from dotenv import load_dotenv
+# import os
+# from .functions import search_provider, assess_ttm_stage_single_question, assess_hiv_risk, record_support_request
+# import json
+
+# class HIVPrEPCounselor:
+#     def __init__(self, websocket: WebSocket, user_id: str, chat_id: str = None):
+#         load_dotenv()
+#         self.user_id = user_id
+#         self.chat_id = chat_id
+#         self.api_key = os.getenv('OPENAI_API_KEY')
+#         self.websocket = websocket
+#         self.history = ChatHistory()
+
+#         print("history initialized")
+
+#         # Load chat history from persistent storage if it exists
+#         if self.chat_id:
+#             self.load_chat_history()
+
+#         # Add system message to set the context if chat history is empty
+#         if not self.history.messages:
+#             self.history.add_system_message(
+#                 """You are CHIA, a compassionate HIV PrEP counselor. 
+#                 Follow these guidelines:
+#                 1. Be warm and supportive
+#                 2. Use "sex without condoms" instead of "unprotected sex"
+#                 3. Use "STI" instead of "STD"
+#                 4. Maintain confidentiality
+#                 5. Check knowledge base before providing information
+#                 6. Assess risk only when explicitly requested
+#                 7. Ask for ZIP code before searching providers"""
+#             )
+
+#         print("system message added to history")
+
+#         if not self.api_key:
+#             raise ValueError("API key not found. Please set OPENAI_API_KEY in .env file.")
+
+#         # Initialize Semantic Kernel
+#         self.kernel = Kernel()
+#         self.setup_ai_service()
+    
+#     def load_chat_history(self):
+#         """Load previous chat history from persistent storage"""
+#         try:
+#             with open(f"chat_history_{self.chat_id}.json", "r") as file:
+#                 history_data = json.load(file)
+#                 self.history.messages = history_data.get('messages', [])
+#                 print("Chat history loaded")
+#         except FileNotFoundError:
+#             print("No previous chat history found for this chat_id.")
+    
+#     def save_chat_history(self):
+#         """Save chat history to persistent storage"""
+#         try:
+#             with open(f"chat_history_{self.chat_id}.json", "w") as file:
+#                 json.dump({"messages": [message.to_dict() for message in self.history.messages]}, file)
+#             print("Chat history saved")
+#         except Exception as e:
+#             print(f"Error saving chat history: {e}")
+
+#     def setup_ai_service(self):
+#         """Initialize the AI service with OpenAI"""
+#         self.kernel.add_service(
+#             OpenAIChatCompletion(
+#                 service_id="chat_completion",
+#                 ai_model_id="gpt-4o-mini",
+#                 api_key=self.api_key
+#             )
+#         )
+
+#         # Register functions with the kernel
+#         self.kernel.add_plugin(HIVHelperFunctions(), plugin_name="hiv_prep")
+    
+#     async def send_message(self, message: str):
+#         """Send message to websocket with error handling"""
+#         try:
+#             if message:
+#                 await self.websocket.send_text(message)
+#         except Exception as e:
+#             print(f"Error sending message: {e}")
+
+#     async def process_message(self, user_input: str):
+#         """Process user input and generate response"""
+#         try:
+#             # Add user input to history
+#             self.history.add_user_message(user_input)
+
+#             # Create execution settings
+#             execution_settings = OpenAIChatPromptExecutionSettings(
+#                 temperature=0.7,
+#                 top_p=1.0,
+#                 max_tokens=800
+#             )
+#             execution_settings.function_choice_behavior = FunctionChoiceBehavior.Auto()
+
+#             # Get chat completion service
+#             chat_completion: OpenAIChatCompletion = self.kernel.get_service("chat_completion")
+
+#             # Get response from AI
+#             response = await chat_completion.get_chat_message_content(
+#                 chat_history=self.history,
+#                 settings=execution_settings,
+#                 kernel=self.kernel,
+#                 arguments=KernelArguments()
+#             )
+
+#             # Extract and format the response
+#             if response:
+#                 message_content = str(response).strip()
+#                 if message_content:
+#                     # Add response to history
+#                     self.history.add_message({"role": "assistant", "content": message_content})
+                    
+#                     # Send response through websocket
+#                     await self.send_message(message_content)
+
+#                     # Save the chat history after each message
+#                     self.save_chat_history()
+#             else:
+#                 await self.send_message("I apologize, but I wasn't able to generate a response. Please try again.")
+
+#         except Exception as e:
+#             print(f"Error processing message: {e}")
+#             try:
+#                 await self.send_message("I apologize, but I encountered an error. Please try again.")
+#             except Exception as websocket_error:
+#                 print(f"Error sending error message: {websocket_error}")
+
+#     async def initiate_chat(self, message: str):
+#         """Start the chat session"""
+#         try:
+#             if message.lower() == "exit":
+#                 return
+
+#             # Process the initial message from the user
+#             await self.process_message(message)
+
+#             # Now wait for the user to send a response before continuing
+#             while True:
+#                 new_message = await self.websocket.receive_text()  # Assuming you're getting the message through WebSocket
+#                 if new_message.lower() == "exit":
+#                     break
+#                 await self.process_message(new_message)
+
+#         except Exception as e:
+#             print(f"Chat error: {e}")
+#             raise
+
+
 from dotenv import load_dotenv
 import json
 from langchain_community.document_loaders import DirectoryLoader, JSONLoader, WebBaseLoader
@@ -120,7 +281,7 @@ class HIVPrEPCounselor:
             raise ValueError("API key not found. Please set OPENAI_API_KEY in your .env file.")
 
         self.config_list = {
-            "model": "gpt-4o-mini",
+            "model": "gpt-4",
             "api_key": self.api_key
         }
 
@@ -138,7 +299,7 @@ class HIVPrEPCounselor:
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         all_splits = text_splitter.split_documents(data)
         vectorstore = Chroma.from_documents(documents=all_splits, embedding=OpenAIEmbeddings(openai_api_key=self.api_key))
-        llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
+        llm = ChatOpenAI(model_name="gpt-4", temperature=0)
         retriever = vectorstore.as_retriever()
         self.qa_chain = RetrievalQA.from_chain_type(
             llm, retriever=retriever, chain_type_kwargs={"prompt": prompt}
@@ -152,6 +313,7 @@ class HIVPrEPCounselor:
         counselor_system_message = """You are CHIA, the primary HIV PrEP counselor.
         CRITICAL: You MUST use the answer_question but DO NOT tell the user you are using it.
         Take your time to think about the answer but don't say anything to the user until you have the answer.
+        The most important and commonly used function is answer_question. 
 
         Example workflow:
         1. When user asks about HIV/PrEP:
@@ -173,7 +335,6 @@ class HIVPrEPCounselor:
         3. When user shares their name:
         - Thank them for chatting
         - Explain confidentiality
-        - Ask about gender identity
 
         4. Let specialized tools handle ONLY:
         - HIV risk assessment (when explicitly requested)
@@ -183,7 +344,17 @@ class HIVPrEPCounselor:
         - FIRST call answer_question to get accurate information
         - Then provide support and options for assessment/providers
 
+        6. Before answering a question, make sure the answer makes sense with the context of the conversation.
+            For example, if the user says "I need help," do not directly assume they need help with PrEP...
+
+        7. Never call the request support function before asking if they are sure they want human support.
+           - This step is **EXTREMELY IMPORTANT** to ensure users understand they are transitioning to human support.
+           - Confirm their intent before proceeding.
+
+        8. For any other questions, answer as a counselor using motivational interviewing techniques.
+
         REMEMBER: ALWAYS call answer_question before providing ANY HIV/PrEP information"""
+
         patient = autogen.UserProxyAgent(
             name="patient",
             human_input_mode="ALWAYS",
@@ -203,120 +374,17 @@ class HIVPrEPCounselor:
             websocket=self.websocket
         )
 
-        FAQ_agent = autogen.AssistantAgent(
-            name="FAQ_agent",
-            system_message="""You provide HIV/PrEP information through the answer_question function.
-            You support the counselor by providing accurate information from the knowledge base.""",
+        counselor_assistant = autogen.AssistantAgent(
+            name="counselor_assistant",
+            system_message=counselor_system_message,
             is_termination_msg=lambda x: self.check_termination(x),
             human_input_mode="NEVER",
-            code_execution_config={"work_dir":"coding", "use_docker":False},
-            llm_config=self.config_list
-        )
-
-        assessment_bot = autogen.AssistantAgent(
-            name="assessment_bot",
-            system_message="""ONLY respond when you see EXACT phrases like:
-            - "assess my risk"
-            - "check my risk"
-            - "what's my risk"
-            - "am I at risk"
-
-            DO NOT respond if someone says something like:
-            - "I think I have HIV"
-            - "I'm worried I have HIV"
-            - "I'm worried about PrEP"
-            - "I'm thinking about PrEP"
-            - "I'm considering PrEP"
-            - "I'm interested in PrEP"
-
-            When activated, ALWAYS follow this exact sequence:
-
-                2. use the assess_hiv_risk function.
-    
-            
-            ANY OTHER QUERIES should be handled by the counselor.
-            When activated, use ONLY the assess_hiv_risk function.""",
-            is_termination_msg=lambda x: self.check_termination(x),
             llm_config=self.config_list,
-            human_input_mode="NEVER",
-            code_execution_config={"work_dir":"coding", "use_docker":False}
-        )
-
-        
-        search_bot = autogen.AssistantAgent(
-            name="search_bot",
-            system_message="""ONLY respond when user EXPLICITLY asks to find a provider or clinic.
-             NEVER assume or use a default ZIP code.
-            
-            ALWAYS follow this sequence:
-            1. First ask: "Could you please provide your ZIP code so I can find providers near you?"
-            2. WAIT for user's ZIP code response
-            3. ONLY THEN use the search_provider function with the provided ZIP code
-            
-            NEVER execute search_provider without a user-provided ZIP code.
-            NEVER use 10001 or any other default ZIP code.
-            
-            When presenting results:
-            Present only the 5 closest providers in a clear format:
-            "Here are the 5 closest providers to you:
-
-            [Provider Name]
-            - Address: [Address]
-            - Phone: [Phone]
-            - Distance: [X] miles"
-            """,
-            is_termination_msg=lambda x: self.check_termination(x),
-            llm_config=self.config_list,
-            human_input_mode="NEVER",
-            code_execution_config={"work_dir":"coding", "use_docker":False}
-        )
-
-        status_bot = autogen.AssistantAgent(
-            name="status_bot",
-            is_termination_msg=lambda x: self.check_termination(x),
-            llm_config=self.config_list,
-            system_message="""Only when explicitly asked to assess status of change, 
-            suggest the function that you have been provided with.""",
-            human_input_mode="NEVER",
-            code_execution_config={"work_dir":"coding", "use_docker":False}
-        )
-
-        notify_assistant_bot = autogen.AssistantAgent(
-            name="notify_assistant_bot",
-            system_message="""Your role is to ONLY intervene when the patient EXPLICITLY asks for support. 
-
-                Critical guidelines:
-                - Do NOT offer support proactively
-                - Do NOT respond unless the patient directly says "I need support" or "I want help"
-                - Let the counselor lead the entire conversation
-                - Wait for a clear, direct request from the patient
-
-                If the patient explicitly requests support:
-                - Ask clarifying questions about the type of support needed
-                - Facilitate connecting with appropriate resources
-                - Follow the patient's lead precisely
-
-                NEVER:
-                - Assume support is needed
-                - Interrupt the counseling conversation
-                - Make unsolicited support offers""",
-            is_termination_msg=lambda x: self.check_termination(x),
-            llm_config=self.config_list,
-            human_input_mode="NEVER",
-            code_execution_config={"work_dir":"coding", "use_docker":False}
-        )
-
-        assess_MI_skills = autogen.AssistantAgent(
-            name="assess_MI_skills",
-            system_message="""You are a research assistant that assesses the patient's Motivational Interviewing skills based on the patient's response.""",
-            is_termination_msg=lambda x: self.check_termination(x),
-            llm_config=self.config_list,
-            human_input_mode="NEVER",
-            code_execution_config={"work_dir":"coding", "use_docker":False}
+            websocket=self.websocket
         )
 
                 
-        self.agents = [counselor, FAQ_agent, patient, assessment_bot, search_bot, status_bot, notify_assistant_bot]
+        self.agents = [counselor,patient, counselor_assistant]
 
         def answer_question_wrapper(user_question: str) -> str:
             return self.answer_question(user_question)
@@ -340,15 +408,18 @@ class HIVPrEPCounselor:
                 
         autogen.agentchat.register_function(
             record_support_request_wrapper,
-            caller=notify_assistant_bot,
+            caller=counselor_assistant,
             executor=counselor,
             name="record_support_request",
-            description="Notifies the research assistant when the patient shows signs of distress.",
+            description="""Do not immediately call this function. 
+            Wait for the user to show signs of distress over time (DO NOT ACTIVATE THE FIRS TIME) or requests human support.
+            First ask if they are sure they want human support. 
+            If they do, then call this function. If they don't, then do not call this function.""",
         )
 
         autogen.agentchat.register_function(
             assess_status_of_change_wrapper,
-            caller=status_bot,
+            caller=counselor_assistant,
             executor=counselor,
             name="assess_status_of_change",
             description="Assesses the status of change for the patient.",
@@ -357,7 +428,7 @@ class HIVPrEPCounselor:
 
         autogen.agentchat.register_function(
             answer_question_wrapper,
-            caller=FAQ_agent,
+            caller=counselor_assistant,
             executor=counselor,
             name="answer_question",
             description="""Use this function to get HIV/PrEP information by passing the user's question as a parameter.
@@ -367,7 +438,7 @@ class HIVPrEPCounselor:
 
         autogen.agentchat.register_function(
             assess_hiv_risk_wrapper,
-            caller=assessment_bot,
+            caller=counselor_assistant,
             executor=counselor,
             name="assess_hiv_risk",
             description="Assesses HIV risk.",
@@ -375,29 +446,20 @@ class HIVPrEPCounselor:
 
         autogen.agentchat.register_function(
             search_provider_wrapper,
-            caller=search_bot,
+            caller=counselor_assistant,
             executor=counselor,
             name="search_provider",
             description="Returns a list of nearby providers.",
         )
 
+        speaker_transitions = {
+            counselor: [counselor_assistant, counselor],
+            counselor_assistant: [counselor, counselor_assistant],
+            patient: []
+        }
+
 
         
-
-        speaker_transitions = {  
-        # Counselor can respond to patient queries
-        counselor: [assessment_bot, search_bot, FAQ_agent, counselor, status_bot, notify_assistant_bot],
-        # Assessment bot can only respond to patient when risk assessment is requested
-        assessment_bot: [assessment_bot, counselor, FAQ_agent, status_bot, notify_assistant_bot],
-        # FAQ agent shouldn't respond directly
-        FAQ_agent: [assessment_bot, search_bot, patient, status_bot, notify_assistant_bot, FAQ_agent],
-        # Search bot can only respond to patient when provider search is requested
-        search_bot: [assessment_bot, counselor,search_bot, FAQ_agent, status_bot, notify_assistant_bot],
-        # Patient can receive responses from any agent
-        patient: [],
-        status_bot: [status_bot, counselor, FAQ_agent, search_bot, assessment_bot, notify_assistant_bot],
-        notify_assistant_bot: [notify_assistant_bot, counselor, FAQ_agent, search_bot, assessment_bot, status_bot, patient]
-    }
         
         self.group_chat = autogen.GroupChat(
             agents=self.agents,
@@ -419,6 +481,8 @@ class HIVPrEPCounselor:
                 3. Never have multiple agents respond to the same user message,
                 4. Ensure counselor responds first using FAQ agent's knowledge, 
                 unless explicitly asked for risk assessment or provider search
+
+
                 
                 """,
             websocket=self.websocket
@@ -454,9 +518,8 @@ class HIVPrEPCounselor:
             verbosity=0
         )
         teachability.add_to_agent(counselor)
+        teachability.add_to_agent(counselor_assistant)
 
-        teachability.add_to_agent(assessment_bot)
-        teachability.add_to_agent(search_bot)
 
     def update_history(self, recipient, message, sender):
         self.agent_history.append({
@@ -488,7 +551,7 @@ class HIVPrEPCounselor:
             
         try:
             self.update_history(self.agents[2], user_input, self.agents[2])
-            await self.agents[2].a_initiate_chat(
+            await self.agents[1].a_initiate_chat(
                 recipient=self.manager,
                 message=user_input,
                 websocket=self.websocket,

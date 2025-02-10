@@ -69,6 +69,7 @@ export const createMessage = async (message: TablesInsert<"messages">) => {
 
   messages.forEach(msg => {
     if (!msg.chat_id || !msg.user_id || !msg.content || !msg.role) {
+  
       console.error("Invalid message:", msg)
       throw new Error("Invalid message format") 
     }

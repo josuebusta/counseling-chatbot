@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Chrome options for running in Docker
-ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROME_BIN=/usr/bin/chromium4rr
 ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 # Copy the requirements.txt file from the local directory to the /FastAPI directory in the container
 COPY requirements.txt .

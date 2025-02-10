@@ -156,32 +156,33 @@ export class WebSocketManager {
     }
   }
 
-  public async sendChatMessage(content: string): Promise<any> {
-    if (!this.isInitialized) {
-      throw new Error('WebSocket not initialized');
-    }
+  // public async sendChatMessage(content: string): Promise<any> {
+  //   if (!this.isInitialized) {
+  //     throw new Error('WebSocket not initialized');
+  //   }
 
-    const messageId = Math.random().toString(36).substring(7);
-    const message = {
-      type: 'message',
-      messageId,
-      content
-    };
+  //   const messageId = Math.random().toString(36).substring(7);
+  //   const message = {
+  //     type: 'message',
+  //     messageId,
+  //     content,
+  //     role: 'user'
+  //   };
 
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        this.pendingMessageResolvers.delete(messageId);
-        reject(new Error('Message timeout'));
-      }, 30000); // 30 second timeout
+  //   return new Promise((resolve, reject) => {
+  //     const timeout = setTimeout(() => {
+  //       this.pendingMessageResolvers.delete(messageId);
+  //       reject(new Error('Message timeout'));
+  //     }, 30000); // 30 second timeout
 
-      this.pendingMessageResolvers.set(messageId, (response) => {
-        clearTimeout(timeout);
-        resolve(response);
-      });
+  //     this.pendingMessageResolvers.set(messageId, (response) => {
+  //       clearTimeout(timeout);
+  //       resolve(response);
+  //     });
 
-      this.sendMessage(message);
-    });
-  }
+  //     this.sendMessage(message);
+  //   });
+  // }
 
 
   private sendMessage(message: any): void {

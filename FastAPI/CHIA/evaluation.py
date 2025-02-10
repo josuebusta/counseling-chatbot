@@ -143,7 +143,7 @@ def evaluate_counseling_response(chat_id: str, chat_response: str, context_file_
 # if __name__ == "__main__":
 #     context_file_path = "/Users/amaris/Desktop/AI_coder/counselling-chatbot/FastAPI/embeddings/HIV_PrEP_knowledge_embedding.json"
 #     chat_response = "HIV stands for Human Immunodeficiency Virus."
-#     chat_id = str(uuid.uuid4())
+#     chat_id = "998efaa4-ae0d-4777-9627-8edfb32f9392"
 #     result = evaluate_counseling_response(chat_id, "HIV stands for Human Immunodeficiency Virus.")
 #     print(f"Evaluation result: {result}")
 

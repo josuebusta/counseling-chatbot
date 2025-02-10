@@ -140,6 +140,7 @@ export const handleHostedChat = async (
   setToolInUse: React.Dispatch<React.SetStateAction<string>>
 ): Promise<string> => {
   console.log("Received payload:", payload);
+  // let isUserMessage = false;
 
   const provider = "custom"
 
@@ -167,27 +168,37 @@ export const handleHostedChat = async (
     const ws = wsManager.getSocket();
 
   // ADDED ABOVE
+    // console.log("isUserMessage 0 ", isUserMessage)
 
+    // if (draftMessages.length > 0 && draftMessages[draftMessages.length - 1].role === 'user') {
+  //   if ((requestBody.messages[requestBody.messages.length - 1].content).length > 0) {
+  //     isUserMessage = true;
+  //   } 
+  // console.log("isUserMessage 1", isUserMessage)
+  // const isUserMessage = draftMessages.length > 0 && 
+  //   draftMessages[draftMessages.length - 1].role === 'user';
 
-    if (ws.readyState === WebSocket.OPEN && !wsManager.messageProcessing) {
-  console.log("Sending message");
+  console.log("Sending message",requestBody.messages[requestBody.messages.length - 1].content);
   ws.send(JSON.stringify({
       type: 'message',
       messageId: Math.random().toString(36).substring(7),
       content: requestBody.messages[requestBody.messages.length - 1].content
   }));
   setIsGenerating(true);
-} else {
-  console.log("Socket not ready or message processing in progress");
-}
+// } else {
+//   console.log("Socket not ready or message processing in progress");
+// }
 
 
     ws.onmessage = (event) => {
+      console.log("event", event)
       const response = event.data;
       console.log("response:", response);
+      // console.log("isUserMessage 2", isUserMessage)
       
       
       if (!response.includes('patient:') && !response.includes('{')) {
+        console.log("response 1", response)
       // Handle the response from your custom backend
       processResponse(
         response,
@@ -201,7 +212,7 @@ export const handleHostedChat = async (
         setToolInUse
       );
 
-      setIsGenerating(false); // Stop the loading indicator once the response is received
+      setIsGenerating(false); 
 
       // Resolve the promise with the response (or a part of it)
       resolve(response); 
@@ -213,6 +224,7 @@ export const handleHostedChat = async (
       setIsGenerating(false); // Stop loading in case of error
       reject(error);  // Reject the promise if there's an error
     };
+    // isUserMessage = false;
   });
 };
 

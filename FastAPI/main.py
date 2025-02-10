@@ -11,7 +11,7 @@ from typing import Optional, Dict
 import json
 import logging
 import asyncio
-from CHIA.CHIA_LangchainEmbeddings import HIVPrEPCounselor, TrackableGroupChatManager
+from CHIA.CHIA_LangchainEmbeddings import HIVPrEPCounselor
 import hashlib
 import time
 from fastapi import BackgroundTasks
@@ -69,6 +69,7 @@ app.add_middleware(
 
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    print("WebSocket connection established")
     user_id = None
     workflow_manager = None
     message_cache: Dict[str, float] = {}

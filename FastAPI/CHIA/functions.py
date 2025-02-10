@@ -272,27 +272,27 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
     """
     answer = ""
     try:
-        # Step 1: Ask if they want support
-        await websocket.send_text(
-            "I understand you're feeling stressed. Would you like additional support from a human research assistant?"
-        )
+        # # Step 1: Ask if they want support
+        # await websocket.send_text(
+        #     "I understand you're feeling stressed. Would you like additional support from a human research assistant?"
+        # )
         
         # Wait for initial response
-        try:
-            response = await websocket.receive_text()
-            # if "chat_id" not in response:     
-            print("Initial user response:", response)
+        # try:
+        #     response = await websocket.receive_text()
+        #     # if "chat_id" not in response:     
+        #     print("Initial user response:", response)
             
-            # Parse the response
-            response_json = json.loads(response)
-            answer = response_json.get("content", "").lower()
-        except json.JSONDecodeError:
-            await websocket.send_text("I didn't understand that. Could you please respond with 'yes' or 'no'?")
-            return "Invalid response format."
+        #     # Parse the response
+        #     response_json = json.loads(response)
+        #     answer = response_json.get("content", "").lower()
+        # except json.JSONDecodeError:
+        #     await websocket.send_text("I didn't understand that. Could you please respond with 'yes' or 'no'?")
+        #     return "Invalid response format."
         
-        # Step 2: Check if the user agrees
-        if "yes" not in answer:
-            return "I understand. Please let me know if you change your mind. What else can I help you with?"
+        # # Step 2: Check if the user agrees
+        # if "yes" not in answer:
+        #     return "I understand. Please let me know if you change your mind. What else can I help you with?"
         
         # Step 3: Ask for the support type
         await websocket.send_text(
@@ -369,13 +369,16 @@ async def get_chat_history():
             current_time = datetime.now(timezone.utc)
       
             chat_response = supabase.table("chats")\
-                            .select("updated_at")\
+                            .select("updated_at", "created_at")\
                             .eq("id", chat_id.strip())\
                             .execute()
             
             updated_at_str = chat_response.data[0]['updated_at']
+            if not updated_at_str:
+                updated_at_str = chat_response.data[0]['created_at']
             if updated_at_str:
                 updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
+            
             else:
                 print("No updated_at found for chat_id:", chat_id)
                 continue
@@ -396,7 +399,7 @@ async def get_chat_history():
                     return None
 
                 # Evaluate chat history
-                evaluate_counseling_response(chat_id, chat_history)
+                evaluate_counseling_response(str(chat_id), chat_history)
                 print(f"Evaluated {len(chat_history)} chat messages")
 
                 # Mark chats as evaluated

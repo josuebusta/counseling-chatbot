@@ -347,7 +347,7 @@ const handleSendMessage = async (
   console.error("handleHostedChat error:", error);
   throw error; 
 });
-console.log("generatedText", generatedText)
+console.log("generatedText 0", generatedText)
       
 
   
@@ -399,10 +399,11 @@ console.log("generatedText", generatedText)
       console.log("profile", profile)
       console.log("modelData", modelData)
       console.log("messageContent", messageContent)
-      console.log("generatedText", generatedText)
+      console.log("generatedText 1", generatedText)
       console.log("newMessageImages", newMessageImages)
       console.log("isRegeneration", isRegeneration)
       console.log("retrievedFileItems", retrievedFileItems)
+
       await handleCreateMessages(
         chatMessages,
         currentChat,
@@ -417,7 +418,6 @@ console.log("generatedText", generatedText)
         setChatFileItems,
         setChatImages,
         selectedAssistant,
-        
       )
 
       setIsGenerating(false)
