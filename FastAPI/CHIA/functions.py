@@ -389,7 +389,6 @@ async def get_chat_history():
                 history_response = supabase.table("messages") \
                     .select("content") \
                     .eq("chat_id", chat_id) \
-                    .eq("role", "assistant") \
                     .execute()
 
                 chat_history = [msg["content"] for msg in history_response.data or []]
