@@ -294,7 +294,7 @@ class HIVPrEPCounselor:
             caller=counselor_assistant,
             executor=counselor,
             name="assess_hiv_risk",
-            description="Assesses HIV risk.",
+            description="Assesses HIV risk when the user explicitly asks for it.",
         )
 
         autogen.agentchat.register_function(

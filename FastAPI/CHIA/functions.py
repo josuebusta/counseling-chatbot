@@ -67,85 +67,122 @@ async def assess_hiv_risk(websocket) -> str:
 def search_provider(zip_code: str) -> Dict:
     """
     Searches for PrEP providers within 30 miles of the given ZIP code.
-    
-    Args:
-        zip_code (str): The ZIP code to search for providers.
-    
-    Returns:
-        str: A JSON string of provider information within 30 miles.
     """
     try:
-        # Initialize Chrome options
+        print("Initializing Chrome options...")
         chrome_options = Options()
-        chrome_options.add_argument('--headless')
         chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--headless=new')  # Updated headless mode
         chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-gpu')
+        chrome_options.add_argument('--window-size=1920,1080')
+        chrome_options.add_argument('--disable-extensions')
+        chrome_options.add_argument('--disable-setuid-sandbox')
+        chrome_options.add_argument('--remote-debugging-port=9222')
+        chrome_options.add_argument('--disable-software-rasterizer')
+        chrome_options.binary_location = '/usr/bin/google-chrome-stable'
 
-        # Use ChromeDriverManager to get the ChromeDriver path
-        driver_path = ChromeDriverManager().install()
-        service = Service(driver_path)
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-
-        # Open the website
-        driver.get("https://preplocator.org/")
-        time.sleep(2)
-
-        # Find the search box and enter the ZIP code
-        search_box = driver.find_element(By.CSS_SELECTOR, "input[type='search']")
-        search_box.clear()
-        search_box.send_keys(zip_code)
-
-        # Find the submit button and click it
-        submit_button = driver.find_element(By.CSS_SELECTOR, "button.btn[type='submit']")
-        submit_button.click()
-        time.sleep(5)  # Wait for results to load
-
-        # Parse the page content
-        html = driver.page_source
-        soup = BeautifulSoup(html, 'html.parser')
-        results = soup.find_all('div', class_='locator-results-item')
+        print("Setting up Chrome service...")
+        service = Service(executable_path='/usr/local/bin/chromedriver')
         
-        # Extract information from each result item
-        extracted_data = []
-        for result in results:
-            name = result.find('h3').text.strip() if result.find('h3') else 'N/A'
-            details = result.find_all('span')
-            address = details[0].text.strip() if len(details) > 0 else 'N/A'
-            phone = details[1].text.strip() if len(details) > 1 else 'N/A'
-            distance_with_label = details[2].text.strip() if len(details) > 2 else 'N/A'
-            distance = distance_with_label.replace('Distance from your location:', '').strip() if distance_with_label != 'N/A' else 'N/A'
-            extracted_data.append({
-                'Name': name,
-                'Address': address,
-                'Phone': phone,
-                'Distance': distance
-            })
+        print("Creating Chrome driver...")
+        try:
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+            print("Chrome driver created successfully")
+        except Exception as e:
+            print(f"Failed to create Chrome driver: {str(e)}")
+            # Try to get more detailed error information
+            import subprocess
+            print("Chrome version:", subprocess.getoutput('google-chrome --version'))
+            print("ChromeDriver version:", subprocess.getoutput('chromedriver --version'))
+            print("Chrome binary location:", subprocess.getoutput('which google-chrome-stable'))
+            print("ChromeDriver location:", subprocess.getoutput('which chromedriver'))
+            raise
 
-        driver.quit()
+        try:
+            print(f"Navigating to preplocator.org for zip code {zip_code}...")
+            driver.get("https://preplocator.org/")
+            print("Page loaded successfully")
+            time.sleep(5)  # Increased wait time
 
-        # Create DataFrame and filter for locations within 30 miles
-        df = pd.DataFrame(extracted_data)
-        df['Distance'] = df['Distance'].str.replace(r'[^\d.]+', '', regex=True)
-        df['Distance'] = pd.to_numeric(df['Distance'], errors='coerce')
-        # filtered_df = df[df['Distance'] <= 30]
-        filtered_df = df[df['Distance'] <= 30].nsmallest(5, 'Distance')  
-        
-        # Return data as JSON
-        formatted_results = "Here are the 5 closest providers to you:\n\n"
+            # Print page source for debugging
+            print("Page source length:", len(driver.page_source))
             
-        for _, provider in filtered_df.iterrows():
-            formatted_results += f"{provider['Name']}\n"
-            formatted_results += f"- Address: {provider['Address']}\n"
-            formatted_results += f"- Phone: {provider['Phone']}\n"
-            formatted_results += f"- Distance: {provider['Distance']} miles\n\n"
-        
-        formatted_results += "Would you like any additional information about these providers?"
-        
-        return formatted_results
-        
-    except Exception as e:
-        return "I'm sorry, I couldn't find any providers near you. Please try again with a different ZIP code."
+            print("Looking for search box...")
+            search_box = driver.find_element(By.CSS_SELECTOR, "input[type='search']")
+            print("Search box found")
+            
+            search_box.clear()
+            search_box.send_keys(zip_code)
+            print(f"Entered zip code: {zip_code}")
 
+            print("Looking for submit button...")
+            submit_button = driver.find_element(By.CSS_SELECTOR, "button.btn[type='submit']")
+            print("Submit button found")
+            
+            submit_button.click()
+            print("Clicked submit button")
+            
+            time.sleep(5)  # Wait for results to load
+
+            # Rest of your existing code...
+            html = driver.page_source
+            soup = BeautifulSoup(html, 'html.parser')
+            results = soup.find_all('div', class_='locator-results-item')
+            
+            # Extract information from each result item
+            extracted_data = []
+            for result in results:
+                name = result.find('h3').text.strip() if result.find('h3') else 'N/A'
+                details = result.find_all('span')
+                address = details[0].text.strip() if len(details) > 0 else 'N/A'
+                phone = details[1].text.strip() if len(details) > 1 else 'N/A'
+                distance_with_label = details[2].text.strip() if len(details) > 2 else 'N/A'
+                distance = distance_with_label.replace('Distance from your location:', '').strip() if distance_with_label != 'N/A' else 'N/A'
+                extracted_data.append({
+                    'Name': name,
+                    'Address': address,
+                    'Phone': phone,
+                    'Distance': distance
+                })
+
+            if not extracted_data:
+                return "I couldn't find any providers in that area. Would you like to try a different ZIP code?"
+
+            # Create DataFrame and filter results
+            df = pd.DataFrame(extracted_data)
+            df['Distance'] = df['Distance'].str.replace(r'[^\d.]+', '', regex=True)
+            df['Distance'] = pd.to_numeric(df['Distance'], errors='coerce')
+            filtered_df = df[df['Distance'] <= 30].nsmallest(5, 'Distance')  
+
+            if filtered_df.empty:
+                return "I couldn't find any providers within 30 miles of that ZIP code. Would you like to try a different ZIP code?"
+
+            # Format results
+            formatted_results = "Here are the 5 closest providers to you:\n\n"
+            for _, provider in filtered_df.iterrows():
+                formatted_results += f"{provider['Name']}\n"
+                formatted_results += f"- Address: {provider['Address']}\n"
+                formatted_results += f"- Phone: {provider['Phone']}\n"
+                formatted_results += f"- Distance: {provider['Distance']} miles\n\n"
+            
+            formatted_results += "Would you like any additional information about these providers?"
+            
+            return formatted_results
+
+        except Exception as e:
+            print(f"Error during search: {str(e)}")
+            print("Page source:", driver.page_source)  # This will help debug page loading issues
+            raise
+            
+    except Exception as e:
+        print(f"Error in search_provider: {str(e)}")
+        return f"I'm sorry, I couldn't find any providers near you. Technical Error: {str(e)}"
+    
+    finally:
+        if 'driver' in locals():
+            print("Closing Chrome driver...")
+            driver.quit()
 
 async def assess_ttm_stage_single_question(websocket: WebSocket) -> str:
     question = """Of course, I will ask you a single question to assess your status of change. 
