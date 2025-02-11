@@ -133,15 +133,15 @@ async def websocket_endpoint(websocket: WebSocket):
                         continue
                     print("parsed_data message", parsed_data)
                     await workflow_manager.initiate_chat(parsed_data)
-                    # response = workflow_manager.get_latest_response()
-                    # print("response", response)
+                    response = workflow_manager.get_latest_response()
+                    print("response", response)
                     
-                    # if response:
-                    #     await websocket.send_text(json.dumps({
-                    #         "type": "chat_response",
-                    #         "messageId": message_id,
-                    #         "content": response
-                    #     }))
+                    if response:
+                        await websocket.send_text(json.dumps({
+                            "type": "chat_response",
+                            "messageId": message_id,
+                            "content": response
+                        }))
                 except Exception as e:
                     print(f"Error processing message: {e}")
                     await websocket.send_text(json.dumps({

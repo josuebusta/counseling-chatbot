@@ -13,8 +13,8 @@ import { useContext, useEffect, useRef, useState } from "react"
 import { LLM_LIST } from "../../../lib/models/llm/llm-list"
 import {
   createTempMessages,
-  // handleCreateChat,
-  // handleCreateMessages,
+  handleCreateChat,
+  handleCreateMessages,
   handleHostedChat,
   // handleRetrieval,
   processResponse,
@@ -352,25 +352,25 @@ console.log("generatedText 0", generatedText)
 
   
 
-      // if (!currentChat) {
+      if (!currentChat) {
 
-      //   console.log("currentChat0")
-      //   currentChat = await handleCreateChat(
-      //     chatSettings!,
-      //     profile!,
-      //     selectedWorkspace!,
-      //     messageContent,
-      //     selectedAssistant!,
-      //     newMessageFiles,
-      //     setSelectedChat,
-      //     setChats,
-      //     setChatFiles,
-      //     chatId
-      //   )
-      //   console.log("currentChat1", currentChat)
-      // } else {
+        console.log("currentChat0")
+        currentChat = await handleCreateChat(
+          chatSettings!,
+          profile!,
+          selectedWorkspace!,
+          messageContent,
+          selectedAssistant!,
+          newMessageFiles,
+          setSelectedChat,
+          setChats,
+          setChatFiles,
+          chatId
+        )
+        console.log("currentChat1", currentChat)
+      } else {
         console.log("currentChat2", currentChat)
-        const updatedChat = await updateChat(currentChat!.id, {
+        const updatedChat = await updateChat(currentChat.id, {
           updated_at: new Date().toISOString()
         })
         console.log("updatedChat", updatedChat)
@@ -381,7 +381,7 @@ console.log("generatedText 0", generatedText)
           console.log("updatedChats", updatedChats)
           return updatedChats
         })
-      // }
+      }
 
       // check if the chat already exists in the chatMessages array to avoid duplicates
 
@@ -404,21 +404,21 @@ console.log("generatedText 0", generatedText)
       console.log("isRegeneration", isRegeneration)
       console.log("retrievedFileItems", retrievedFileItems)
 
-      // await handleCreateMessages(
-      //   chatMessages,
-      //   currentChat,
-      //   profile!,
-      //   modelData!,
-      //   messageContent,
-      //   generatedText,
-      //   newMessageImages,
-      //   isRegeneration,
-      //   retrievedFileItems,
-      //   setChatMessages,
-      //   setChatFileItems,
-      //   setChatImages,
-      //   selectedAssistant,
-      // )
+      await handleCreateMessages(
+        chatMessages,
+        currentChat,
+        profile!,
+        modelData!,
+        messageContent,
+        generatedText,
+        newMessageImages,
+        isRegeneration,
+        retrievedFileItems,
+        setChatMessages,
+        setChatFileItems,
+        setChatImages,
+        selectedAssistant,
+      )
 
       setIsGenerating(false)
       setFirstTokenReceived(false)

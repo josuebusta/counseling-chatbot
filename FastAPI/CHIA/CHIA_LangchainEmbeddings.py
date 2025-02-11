@@ -1,166 +1,4 @@
-# from semantic_kernel import Kernel
-# from semantic_kernel.functions.kernel_arguments import KernelArguments
-
-# from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion, OpenAIChatPromptExecutionSettings
-# from semantic_kernel.contents.chat_history import ChatHistory
-# from semantic_kernel.prompt_template.prompt_template_config import PromptTemplateConfig
-# from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
-# from .function_class import HIVHelperFunctions
-
-# from fastapi import WebSocket
-# from dotenv import load_dotenv
-# import os
-# from .functions import search_provider, assess_ttm_stage_single_question, assess_hiv_risk, record_support_request
-# import json
-
-# class HIVPrEPCounselor:
-#     def __init__(self, websocket: WebSocket, user_id: str, chat_id: str = None):
-#         load_dotenv()
-#         self.user_id = user_id
-#         self.chat_id = chat_id
-#         self.api_key = os.getenv('OPENAI_API_KEY')
-#         self.websocket = websocket
-#         self.history = ChatHistory()
-
-#         print("history initialized")
-
-#         # Load chat history from persistent storage if it exists
-#         if self.chat_id:
-#             self.load_chat_history()
-
-#         # Add system message to set the context if chat history is empty
-#         if not self.history.messages:
-#             self.history.add_system_message(
-#                 """You are CHIA, a compassionate HIV PrEP counselor. 
-#                 Follow these guidelines:
-#                 1. Be warm and supportive
-#                 2. Use "sex without condoms" instead of "unprotected sex"
-#                 3. Use "STI" instead of "STD"
-#                 4. Maintain confidentiality
-#                 5. Check knowledge base before providing information
-#                 6. Assess risk only when explicitly requested
-#                 7. Ask for ZIP code before searching providers"""
-#             )
-
-#         print("system message added to history")
-
-#         if not self.api_key:
-#             raise ValueError("API key not found. Please set OPENAI_API_KEY in .env file.")
-
-#         # Initialize Semantic Kernel
-#         self.kernel = Kernel()
-#         self.setup_ai_service()
-    
-#     def load_chat_history(self):
-#         """Load previous chat history from persistent storage"""
-#         try:
-#             with open(f"chat_history_{self.chat_id}.json", "r") as file:
-#                 history_data = json.load(file)
-#                 self.history.messages = history_data.get('messages', [])
-#                 print("Chat history loaded")
-#         except FileNotFoundError:
-#             print("No previous chat history found for this chat_id.")
-    
-#     def save_chat_history(self):
-#         """Save chat history to persistent storage"""
-#         try:
-#             with open(f"chat_history_{self.chat_id}.json", "w") as file:
-#                 json.dump({"messages": [message.to_dict() for message in self.history.messages]}, file)
-#             print("Chat history saved")
-#         except Exception as e:
-#             print(f"Error saving chat history: {e}")
-
-#     def setup_ai_service(self):
-#         """Initialize the AI service with OpenAI"""
-#         self.kernel.add_service(
-#             OpenAIChatCompletion(
-#                 service_id="chat_completion",
-#                 ai_model_id="gpt-4o-mini",
-#                 api_key=self.api_key
-#             )
-#         )
-
-#         # Register functions with the kernel
-#         # self.kernel.add_plugin(HIVHelperFunctions(), plugin_name="hiv_prep")
-#         helper_functions = HIVHelperFunctions(self.websocket, self.chat_id)
-#         self.kernel.add_plugin(helper_functions, plugin_name="hiv_prep")
-       
-            
-#     async def send_message(self, message: str):
-#         """Send message to websocket with error handling"""
-#         try:
-#             if message:
-#                 await self.websocket.send_text(message)
-#         except Exception as e:
-#             print(f"Error sending message: {e}")
-
-#     async def process_message(self, user_input: str):
-#         """Process user input and generate response"""
-#         try:
-#             # Add user input to history
-#             self.history.add_user_message(user_input)
-
-#             # Create execution settings
-#             execution_settings = OpenAIChatPromptExecutionSettings(
-#                 temperature=0.7,
-#                 top_p=1.0,
-#                 max_tokens=800
-#             )
-#             execution_settings.function_choice_behavior = FunctionChoiceBehavior.Auto()
-
-#             # Get chat completion service
-#             chat_completion: OpenAIChatCompletion = self.kernel.get_service("chat_completion")
-
-#             # Get response from AI
-#             response = await chat_completion.get_chat_message_content(
-#                 chat_history=self.history,
-#                 settings=execution_settings,
-#                 kernel=self.kernel,
-#                 arguments=KernelArguments()
-#             )
-
-#             # Extract and format the response
-#             if response:
-#                 message_content = str(response).strip()
-#                 if message_content:
-#                     # Add response to history
-#                     self.history.add_message({"role": "assistant", "content": message_content})
-                    
-#                     # Send response through websocket
-#                     await self.send_message(message_content)
-
-#                     # Save the chat history after each message
-#                     self.save_chat_history()
-#             else:
-#                 await self.send_message("I apologize, but I wasn't able to generate a response. Please try again.")
-
-#         except Exception as e:
-#             print(f"Error processing message: {e}")
-#             try:
-#                 await self.send_message("I apologize, but I encountered an error. Please try again.")
-#             except Exception as websocket_error:
-#                 print(f"Error sending error message: {websocket_error}")
-
-#     async def initiate_chat(self, message: str):
-#         """Start the chat session"""
-#         try:
-#             if message.lower() == "exit":
-#                 return
-
-#             # Process the initial message from the user
-#             await self.process_message(message)
-
-#             # Now wait for the user to send a response before continuing
-#             while True:
-#                 new_message = await self.websocket.receive_text()  # Assuming you're getting the message through WebSocket
-#                 if new_message.lower() == "exit":
-#                     break
-#                 await self.process_message(new_message)
-
-#         except Exception as e:
-#             print(f"Chat error: {e}")
-#             raise
-
+from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 import json
 from langchain_community.document_loaders import DirectoryLoader, JSONLoader, WebBaseLoader
@@ -284,7 +122,7 @@ class HIVPrEPCounselor:
             raise ValueError("API key not found. Please set OPENAI_API_KEY in your .env file.")
 
         self.config_list = {
-            "model": "gpt-4o-mini",
+            "model": "gpt-4o",
             "api_key": self.api_key
         }
 
@@ -296,13 +134,25 @@ class HIVPrEPCounselor:
         return x.get("content", "").rstrip().lower() == "end conversation"
 
     def setup_rag(self):
-        prompt = hub.pull("rlm/rag-prompt", api_url="https://api.hub.langchain.com")
+        prompt = PromptTemplate(
+        template="""You are a knowledgeable HIV prevention counselor. Use the following pieces of context to answer the question. If you don't find an exact answer, provide helpful general guidance and suggest connecting with a healthcare provider.
+
+        Context: {context}
+
+        Question: {question}
+
+        If the answer is not in the context, say "I don't know." Instead, provide helpful guidance based on what you do know and suggest next steps.
+
+        Answer: """,
+        input_variables=["context", "question"]
+    )
+
         loader = WebBaseLoader("https://github.com/amarisg25/embedding-data-chatbot/blob/main/HIV_PrEP_knowledge_embedding.json")
         data = loader.load()
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
         all_splits = text_splitter.split_documents(data)
         vectorstore = Chroma.from_documents(documents=all_splits, embedding=OpenAIEmbeddings(openai_api_key=self.api_key))
-        llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0)
+        llm = ChatOpenAI(model_name="gpt-4o", temperature=0)
         retriever = vectorstore.as_retriever()
         self.qa_chain = RetrievalQA.from_chain_type(
             llm, retriever=retriever, chain_type_kwargs={"prompt": prompt}
@@ -314,49 +164,48 @@ class HIVPrEPCounselor:
 
     def initialize_agents(self):
         counselor_system_message = """You are CHIA, the primary HIV PrEP counselor.
-        CRITICAL: You MUST use the answer_question but DO NOT tell the user you are using it.
+        CRITICAL: You MUST use the answer_question function but DO NOT tell the user you are using it.
         Take your time to think about the answer but don't say anything to the user until you have the answer.
-        The most important and commonly used function is answer_question. 
-
-        Example workflow:
-        1. When user asks about HIV/PrEP:
-        - FIRST call: answer_question(user's question)
-        - THEN use that response to form your answer
-        2. NEVER answer without calling answer_question first
 
         Key Guidelines:
-        1. YOU ARE THE PRIMARY RESPONDER. Always respond first unless:
+        1. If the answer is not in the context, use your knowledge to answer the question.
+        2. NEVER say "I don't know." Instead:
+        - Offer to connect them with healthcare providers
+        - Provide general guidance while emphasizing the importance of personalized medical advice
+        - Focus on what you CAN do to help
+
+        3. YOU ARE THE PRIMARY RESPONDER. Always respond first unless:
         - User explicitly asks for risk assessment
         - User explicitly asks to find a provider
 
-        2. For ANY HIV/PrEP questions:
-        - MUST call answer_question function FIRST
-        - Then format response warmly and conversationally
+        4. For ANY HIV/PrEP questions:
+        - Format response warmly and conversationally
         - Use "sex without condoms" instead of "unprotected sex"
         - Use "STI" instead of "STD"
+        - If unsure about specific details, focus on connecting them with healthcare providers
 
-        3. When user shares their name:
+        5. When user shares their name:
         - Thank them for chatting
         - Explain confidentiality
 
-        4. Let specialized tools handle ONLY:
-        - HIV risk assessment (when explicitly requested)
-        - Provider search (when explicitly requested)
-
-        5. If someone thinks they have HIV:
+        6. If someone thinks they have HIV:
         - FIRST call answer_question to get accurate information
         - Then provide support and options for assessment/providers
+        - Never leave them without resources or next steps
 
-        6. Before answering a question, make sure the answer makes sense with the context of the conversation.
-            For example, if the user says "I need help," do not directly assume they need help with PrEP...
+        7. Before answering a question:
+        - Ensure the answer makes sense in conversation context
+        - If uncertain, focus on connecting them with appropriate resources
+        - Always provide a clear next step or action item
 
-        7. Never call the request support function before asking if they are sure they want human support.
-           - This step is **EXTREMELY IMPORTANT** to ensure users understand they are transitioning to human support.
-           - Confirm their intent before proceeding.
+        8. For any other questions:
+        - Answer as a counselor using motivational interviewing techniques
+        - Focus on what you can do to help
+        - Provide clear next steps
 
-        8. For any other questions, answer as a counselor using motivational interviewing techniques.
+        REMEMBER: 
+        If the answer is unclear, focus on connecting them with healthcare providers who can help."""
 
-        REMEMBER: ALWAYS call answer_question before providing ANY HIV/PrEP information"""
 
         patient = autogen.UserProxyAgent(
             name="patient",
@@ -532,22 +381,22 @@ class HIVPrEPCounselor:
             "message": message
         })
     
-    # def get_latest_response(self):
-    #     """Get the latest valid response"""
-    #     try:
-    #         if not self.group_chat.messages:
-    #             return None
+    def get_latest_response(self):
+        """Get the latest valid response"""
+        try:
+            if not self.group_chat.messages:
+                return None
                 
-    #         for message in reversed(self.group_chat.messages):
-    #             if isinstance(message, dict) and message.get('content'):
-    #                 return message['content']
-    #             elif isinstance(message, str):
-    #                 return message
+            for message in reversed(self.group_chat.messages):
+                if isinstance(message, dict) and message.get('content'):
+                    return message['content']
+                elif isinstance(message, str):
+                    return message
                     
-    #         return None
-    #     except Exception as e:
-    #         print(f"Error getting response: {e}")
-    #         return None
+            return None
+        except Exception as e:
+            print(f"Error getting response: {e}")
+            return None
 
     async def initiate_chat(self, user_input: str = None):
         if not user_input:
