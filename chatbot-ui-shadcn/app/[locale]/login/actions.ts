@@ -20,7 +20,7 @@ const getEnvVarOrEdgeConfigValue = async (name: string) => {
 export async function handleSignUp(formData: FormData): Promise<SignUpResponse> {
   const email = formData.get("email") as string
   const password = formData.get("password") as string
-  const origin = headers().get("origin") || ""
+  const origin = process.env.NEXT_PUBLIC_SUPABASE_URL || headers().get("origin") || ""
 
   const emailDomainWhitelistPatternsString = await getEnvVarOrEdgeConfigValue(
     "EMAIL_DOMAIN_WHITELIST"
@@ -48,13 +48,27 @@ export async function handleSignUp(formData: FormData): Promise<SignUpResponse> 
   const cookieStore = cookies()
   const supabase = createClient(cookieStore)
 
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback`
-    }
-  })
+  
+
+  // const { error } = await supabase.auth.signUp({
+  //   email,
+  //   password,
+  //   options: {
+  //     emailRedirectTo: `${origin}/auth/callback`
+  //   }
+  // })
+
+const publicServerUrl = await getEnvVarOrEdgeConfigValue("PUBLIC_SERVER_URL")
+const redirectUrl = publicServerUrl ? `${publicServerUrl}/auth/callback` : `${origin}/auth/callback`
+
+const { error } = await supabase.auth.signUp({
+  email,
+  password,
+  options: {
+    emailRedirectTo: redirectUrl
+  }
+})
+
 
   if (error) {
     return {
