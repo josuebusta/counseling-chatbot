@@ -136,12 +136,17 @@ class HIVPrEPCounselor:
     def setup_rag(self):
         prompt = PromptTemplate(
         template="""You are a knowledgeable HIV prevention counselor. Use the following pieces of context to answer the question. If you don't find an exact answer, provide helpful general guidance and suggest connecting with a healthcare provider.
+        
 
         Context: {context}
 
         Question: {question}
 
-        If the answer is not in the context, say "I don't know." Instead, provide helpful guidance based on what you do know and suggest next steps.
+        - Use "sex without condoms" instead of "unprotected sex"
+        - Use "STI" instead of "STD"
+
+        If the answer is not in the context, do not say "I don't know." Instead, provide helpful guidance based on what you do know but do not mention the answer is not in the context.
+        If the answer is in the context, do not add information to the answer. You should use motivational interviewing techniques to answer the question.
 
         Answer: """,
         input_variables=["context", "question"]
@@ -166,13 +171,12 @@ class HIVPrEPCounselor:
         counselor_system_message = """You are CHIA, the primary HIV PrEP counselor.
         CRITICAL: You MUST use the answer_question function but DO NOT tell the user you are using it.
         Take your time to think about the answer but don't say anything to the user until you have the answer.
+        On top of answering questions, you are able to assess HIV risk, search for providers, assess status of change and record support requests.
 
         Key Guidelines:
         1. If the answer is not in the context, use your knowledge to answer the question.
-        2. NEVER say "I don't know." Instead:
-        - Offer to connect them with healthcare providers
-        - Provide general guidance while emphasizing the importance of personalized medical advice
-        - Focus on what you CAN do to help
+
+        2. Use motivational interviewing techniques to answer the question.
 
         3. YOU ARE THE PRIMARY RESPONDER. Always respond first unless:
         - User explicitly asks for risk assessment
@@ -302,7 +306,7 @@ class HIVPrEPCounselor:
             caller=counselor_assistant,
             executor=counselor,
             name="search_provider",
-            description="Returns a list of nearby providers.",
+            description="Returns a list of nearby providers. After getting the zip code, immediatelyb return the list of providers. DO NOT say anythiing such as: Please wait while I search for providers. Just return the list of providers.",
         )
 
         speaker_transitions = {

@@ -79,7 +79,7 @@ export const useChatHandler = () => {
 
   const messageAlreadySent = useRef(false);
   let currentChat = selectedChat ? { ...selectedChat } : null
-  const response = "Hello, my name is CHIA. I am an AI assistant for HIV counselling. It's nice to meet you. What can I help you with?" 
+  const response = "Hello, my name is CHIA. I am an AI assistant for HIV counselling. It's nice to meet you. What can I help you with? Please let me know if you would like me to begin with assessing your HIV risk." 
 
 
   
@@ -109,7 +109,7 @@ export const useChatHandler = () => {
       //wsManager.initializeWithChatId(chatId);
       console.log("chatId", chatId);
 
-      if (response === "Hello, my name is CHIA. I am an AI assistant for HIV counselling. It's nice to meet you. What can I help you with?") {
+      if (response === "Hello, my name is CHIA. I am an AI assistant for HIV counselling. It's nice to meet you. What can I help you with? Please let me know if you would like me to begin with assessing your HIV risk.") {
         const tempMessage = {
           message: {
             chat_id: "",
