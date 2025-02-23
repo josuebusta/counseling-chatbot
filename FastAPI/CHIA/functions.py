@@ -239,7 +239,7 @@ Created on Tue Sep 10 11:49:18 2024
 
 
 def notify_research_assistant(client_name, support_type, assistant_email, client_id, smtp_server: str = "smtp.gmail.com",
-    smtp_port: int = 465):
+    smtp_port: int = 465, user_contact_info: str = None):
     """
     Function to notify research assistant when a client needs personal support.
     
@@ -267,6 +267,8 @@ def notify_research_assistant(client_name, support_type, assistant_email, client
     Hello,
 
     The client {client_name} (ID: {client_id}) requires personal support in the following area: {support_type}.
+    Please reach out to the client using the following contact information:
+    {user_contact_info}
 
     Please follow up with the client as soon as possible to provide the necessary support.
 
@@ -296,8 +298,6 @@ def notify_research_assistant(client_name, support_type, assistant_email, client
         return (f"Failed to send notification. Error: {e}")
         
 
-
-# Set up Supabase client
 supabase = create_client(
     os.environ.get("NEXT_PUBLIC_SUPABASE_URL"),
     os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
@@ -307,68 +307,79 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
     """
     Record in Supabase when a user requests support.
     """
-    answer = ""
     try:
-        # # Step 1: Ask if they want support
-        # await websocket.send_text(
-        #     "I understand you're feeling stressed. Would you like additional support from a human research assistant?"
-        # )
-        
-        # Wait for initial response
-        # try:
-        #     response = await websocket.receive_text()
-        #     # if "chat_id" not in response:     
-        #     print("Initial user response:", response)
-            
-        #     # Parse the response
-        #     response_json = json.loads(response)
-        #     answer = response_json.get("content", "").lower()
-        # except json.JSONDecodeError:
-        #     await websocket.send_text("I didn't understand that. Could you please respond with 'yes' or 'no'?")
-        #     return "Invalid response format."
-        
-        # # Step 2: Check if the user agrees
-        # if "yes" not in answer:
-        #     return "I understand. Please let me know if you change your mind. What else can I help you with?"
-        
-        # Step 3: Ask for the support type
+        # Step 1: Ask for support type
         await websocket.send_text(
             "To help connect you with the right support:\n"
-            "- What type of support would be most helpful? (emotional, financial, medical support, etc.)"
+            "What type of support would be most helpful? (emotional, financial, medical support, etc.)"
         )
         print("Sent support type question.")
-        
-        # Wait for response with name and support type
+
+        # Get support type response
         try:
             response = await websocket.receive_text()
             print("Support type response:", response)
-            
-            # Parse the response
             response_json = json.loads(response)
-            info = response_json.get("content", "")
+            support_type = response_json.get("content", "")
         except json.JSONDecodeError:
             await websocket.send_text("I didn't understand that. Could you please rephrase your response?")
             return "Invalid response format."
-        
-        # Parse name and support type
-        parts = [part.strip() for part in info.split(',')]
-        name = parts[0] if len(parts) >= 2 else "Anonymous"
-        support_type = parts[1] if len(parts) >= 2 else parts[0]
+
+        # Step 2: Ask for contact preference
+        await websocket.send_text(
+            "How would you like the research assistant to contact you?\n"
+            "1: By phone\n"
+            "2: By email\n"
+            "0: I do not want to be contacted\n"
+            "Please respond with 0, 1, or 2."
+        )
+
+        # Get contact preference response
+        try:
+            response = await websocket.receive_text()
+            print("Contact preference response:", response)
+            response_json = json.loads(response)
+            contact_preference = response_json.get("content", "").strip()
+        except json.JSONDecodeError:
+            await websocket.send_text("I didn't understand that. Please respond with 0, 1, or 2.")
+            return "Invalid response format."
+
+        # If they don't want contact
+        if contact_preference == "0":
+            return "I understand you don't want to be contacted. Is there anything else I can help you with?"
+
+        # Step 3: Get contact information based on preference
+        contact_info_prompt = "Please provide your phone number so that a research assistant can reach out to you." if contact_preference == "1" else "Please provide your email address so that a research assistant can reach out to you."
+        await websocket.send_text(contact_info_prompt)
+
+        try:
+            response = await websocket.receive_text()
+            print("Contact info response:", response)
+            response_json = json.loads(response)
+            contact_info = response_json.get("content", "").strip()
+        except json.JSONDecodeError:
+            await websocket.send_text("I didn't understand that. Could you please try again?")
+            return "Invalid response format."
 
         # Record in Supabase
-        supabase.table("support_requests").insert({
-            "client_name": name,
+        supabase_record = {
+            "client_name": "Anonymous",  # Default to anonymous
             "support_type": support_type,
             "created_at": datetime.now().isoformat(),
             "notified": False,
-            "chat_id": chat_id
-        }).execute()
+            "chat_id": chat_id,
+            "email": contact_info if contact_preference == "2" else None,
+            "phone": contact_info if contact_preference == "1" else None
+        }
 
-        return f"Thank you for sharing that. When your chat session ends, a research assistant will reach out to provide {support_type} support. What else can I help you with?"
+        supabase.table("support_requests").insert(supabase_record).execute()
+
+        contact_method = "phone" if contact_preference == "1" else "email"
+        return f"Thank you for sharing that. When your chat session ends, a research assistant will reach out to provide {support_type} support via {contact_method}. What else can I help you with?"
 
     except Exception as e:
         print(f"Error recording support request: {e}")
-        # return "I'm having trouble recording your request. Please let me know if you'd like to try again."
+        return "I'm having trouble recording your request. Please let me know if you'd like to try again."
 
 
 async def handle_inactivity(user_id, last_activity_time):
@@ -522,7 +533,8 @@ async def check_inactive_chats():
                     .eq("id", request['chat_id'])\
                     .execute()
                 
-                notify_research_assistant("test", request['support_type'], "amarisgrondin@gmail.com", client_id)
+                user_contact_info = request['email'] if request['email'] else request['phone']
+                notify_research_assistant("test", request['support_type'], "amarisgrondin@gmail.com", client_id, user_contact_info = user_contact_info)
                 supabase.table("support_requests")\
                     .update({"notified": True})\
                     .eq("id", request_id)\

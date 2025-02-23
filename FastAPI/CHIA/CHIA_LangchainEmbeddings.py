@@ -122,7 +122,7 @@ class HIVPrEPCounselor:
             raise ValueError("API key not found. Please set OPENAI_API_KEY in your .env file.")
 
         self.config_list = {
-            "model": "gpt-4o",
+            "model": "gpt-4o-mini",
             "api_key": self.api_key
         }
 

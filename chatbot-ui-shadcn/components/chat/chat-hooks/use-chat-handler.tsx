@@ -110,6 +110,7 @@ export const useChatHandler = () => {
       console.log("chatId", chatId);
 
       if (response === "Hello, my name is CHIA. I am an AI assistant for HIV counselling. It's nice to meet you. What can I help you with? Please let me know if you would like me to begin with assessing your HIV risk.") {
+
         const tempMessage = {
           message: {
             chat_id: "",
@@ -127,6 +128,8 @@ export const useChatHandler = () => {
           fileItems: []
         };
 
+      
+
         setChatMessages([tempMessage]);
         console.log("chatMessages", chatMessages);
       }
@@ -134,12 +137,6 @@ export const useChatHandler = () => {
 
     handleInitialMessage();
   }, [isInitialMessageSent]);
-
-  // useEffect(() => {
-  //   if (!chatMessages) {
-  //     wsManager.close()
-  //   }
-  // }, [chatMessages])
 
 
 
