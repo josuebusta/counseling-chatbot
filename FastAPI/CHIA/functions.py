@@ -25,8 +25,8 @@ import json
 from supabase import create_client
 import os
 from datetime import datetime, timezone
-from CHIA.evaluation import evaluate_counseling_response
-
+from .accuracy_evaluation import evaluate_counseling_response
+from .MI_evaluation import evaluate_motivational_interview
 
 
 async def assess_hiv_risk(websocket) -> str:
@@ -238,7 +238,7 @@ Created on Tue Sep 10 11:49:18 2024
 
 
 
-def notify_research_assistant(client_name, support_type, assistant_email, client_id, smtp_server: str = "smtp.gmail.com",
+def notify_research_assistant(support_type, assistant_email, client_id, smtp_server: str = "smtp.gmail.com",
     smtp_port: int = 465, user_contact_info: str = None):
     """
     Function to notify research assistant when a client needs personal support.
@@ -249,12 +249,12 @@ def notify_research_assistant(client_name, support_type, assistant_email, client
     support_type (str): Type of support needed (e.g., emotional, financial, etc.)
     assistant_email (str): Email address of the research assistant
     """
-    print(f"Notifying research assistant {assistant_email} for client {client_name} (ID: {client_id}) with support type {support_type}.")
+    print(f"Notifying research assistant {assistant_email} for client (ID: {client_id}) with support type {support_type}.")
     
     # Set up email details
     sender_email = "t28184003@gmail.com"
     sender_password = "vnqs wulc clye ncjx"
-    subject = f"Client {client_name} (ID: {client_id}) Needs Personal Support"
+    subject = f"Client (ID: {client_id}) Needs Personal Support"
     
     # Create the email content
     message = MIMEMultipart()
@@ -266,7 +266,7 @@ def notify_research_assistant(client_name, support_type, assistant_email, client
     body = f"""
     Hello,
 
-    The client {client_name} (ID: {client_id}) requires personal support in the following area: {support_type}.
+    The client (ID: {client_id}) requires personal support in the following area: {support_type}.
     Please reach out to the client using the following contact information:
     {user_contact_info}
 
@@ -284,12 +284,11 @@ def notify_research_assistant(client_name, support_type, assistant_email, client
         server = smtplib.SMTP_SSL(smtp_server, smtp_port)
         server.login(sender_email, sender_password)
         
-        # Send the email
+    
         server.sendmail(sender_email, assistant_email, message.as_string())
-        
         # Close the connection
         server.quit()
-        print(f"Notification sent to {assistant_email} regarding client {client_name}.")
+        print(f"Notification sent to {assistant_email} regarding client {client_id}.")
         
         return (f"A research assistant has been notified and will reach out to provide {support_type} support.")
     
@@ -315,7 +314,7 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
         )
         print("Sent support type question.")
 
-        # Get support type response
+    
         try:
             response = await websocket.receive_text()
             print("Support type response:", response)
@@ -325,31 +324,40 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
             await websocket.send_text("I didn't understand that. Could you please rephrase your response?")
             return "Invalid response format."
 
-        # Step 2: Ask for contact preference
-        await websocket.send_text(
-            "How would you like the research assistant to contact you?\n"
-            "1: By phone\n"
-            "2: By email\n"
-            "0: I do not want to be contacted\n"
-            "Please respond with 0, 1, or 2."
-        )
+        # Step 2: Ask for contact preference and validate response
+        while True:
+            if 'formatted_contact_preference' not in locals():  # Only show full message first time
+                formatted_contact_preference = "How would you like the research assistant to contact you?\n\n"
+                formatted_contact_preference += "1: By phone.\n\n"
+                formatted_contact_preference += "2: By email. \n\n"
+                formatted_contact_preference += "0: I do not want to be contacted.\n\n"
+                formatted_contact_preference += "Please reply with 0, 1, or 2."
+                await websocket.send_text(formatted_contact_preference)
+            else:
+                await websocket.send_text("Please make sure to answer with 0, 1, or 2.")
 
-        # Get contact preference response
-        try:
-            response = await websocket.receive_text()
-            print("Contact preference response:", response)
-            response_json = json.loads(response)
-            contact_preference = response_json.get("content", "").strip()
-        except json.JSONDecodeError:
-            await websocket.send_text("I didn't understand that. Please respond with 0, 1, or 2.")
-            return "Invalid response format."
+            try:
+                response = await websocket.receive_text()
+                print("Contact preference response:", response)
+                response_json = json.loads(response)
+                contact_preference = response_json.get("content", "").strip()
+                
+                if contact_preference in ["0", "1", "2"]:
+                    break
+                else:
+                    await websocket.send_text("Please make sure to answer with 0, 1, or 2.")
+            except json.JSONDecodeError:
+                await websocket.send_text("I didn't understand that. Please respond with 0, 1, or 2.")
 
         # If they don't want contact
         if contact_preference == "0":
             return "I understand you don't want to be contacted. Is there anything else I can help you with?"
 
         # Step 3: Get contact information based on preference
-        contact_info_prompt = "Please provide your phone number so that a research assistant can reach out to you." if contact_preference == "1" else "Please provide your email address so that a research assistant can reach out to you."
+        if contact_preference == "1":
+            contact_info_prompt = "Please provide your phone number so that a research assistant can reach out to you."
+        else:  # contact_preference == "2"
+            contact_info_prompt = "Please provide your email address so that a research assistant can reach out to you."
         await websocket.send_text(contact_info_prompt)
 
         try:
@@ -363,7 +371,7 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
 
         # Record in Supabase
         supabase_record = {
-            "client_name": "Anonymous",  # Default to anonymous
+            "client_name": "Anonymous",
             "support_type": support_type,
             "created_at": datetime.now().isoformat(),
             "notified": False,
@@ -374,8 +382,15 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
 
         supabase.table("support_requests").insert(supabase_record).execute()
 
-        contact_method = "phone" if contact_preference == "1" else "email"
+        if contact_preference == "1":
+            contact_method = "phone"
+        elif contact_preference == "2":
+            contact_method = "email"
+        else:
+            contact_method = "Please answer with 0, 1, or 2."
+
         return f"Thank you for sharing that. When your chat session ends, a research assistant will reach out to provide {support_type} support via {contact_method}. What else can I help you with?"
+
 
     except Exception as e:
         print(f"Error recording support request: {e}")
@@ -435,18 +450,22 @@ async def get_chat_history():
             if (current_time - updated_at).total_seconds() > 300:
             
                 history_response = supabase.table("messages") \
-                    .select("content") \
+                    .select('*') \
                     .eq("chat_id", chat_id) \
                     .execute()
 
-                chat_history = [msg["content"] for msg in history_response.data or []]
+                chat_history = [msg["role"] + ": " + msg["content"] for msg in history_response.data or []]
 
                 if not chat_history:
                     print("No chat messages found.")
                     return None
 
-                # Evaluate chat history
+                # Evaluate chat history accuracy
                 evaluate_counseling_response(str(chat_id), chat_history)
+                print(f"Evaluated {len(chat_history)} chat messages")
+
+                # Evaluate chat history motivational interviewing
+                evaluate_motivational_interview(str(chat_id), chat_history)
                 print(f"Evaluated {len(chat_history)} chat messages")
 
                 # Mark chats as evaluated
@@ -474,7 +493,6 @@ async def check_inactive_chats():
         
        
         support_requests = response.data
-        print("support_requests", support_requests)
         if not support_requests:
             print("No support requests found.")
             return
@@ -534,7 +552,7 @@ async def check_inactive_chats():
                     .execute()
                 
                 user_contact_info = request['email'] if request['email'] else request['phone']
-                notify_research_assistant("test", request['support_type'], "amarisgrondin@gmail.com", client_id, user_contact_info = user_contact_info)
+                notify_research_assistant(request['support_type'], "jun_tao@brown.edu", client_id, user_contact_info = user_contact_info)
                 supabase.table("support_requests")\
                     .update({"notified": True})\
                     .eq("id", request_id)\

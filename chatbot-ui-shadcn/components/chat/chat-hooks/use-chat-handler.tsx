@@ -110,7 +110,6 @@ export const useChatHandler = () => {
       console.log("chatId", chatId);
 
       if (response === "Hello, my name is CHIA. I am an AI assistant for HIV counselling. It's nice to meet you. What can I help you with? Please let me know if you would like me to begin with assessing your HIV risk.") {
-
         const tempMessage = {
           message: {
             chat_id: "",
@@ -128,8 +127,6 @@ export const useChatHandler = () => {
           fileItems: []
         };
 
-      
-
         setChatMessages([tempMessage]);
         console.log("chatMessages", chatMessages);
       }
@@ -137,6 +134,12 @@ export const useChatHandler = () => {
 
     handleInitialMessage();
   }, [isInitialMessageSent]);
+
+  // useEffect(() => {
+  //   if (!chatMessages) {
+  //     wsManager.close()
+  //   }
+  // }, [chatMessages])
 
 
 
@@ -381,12 +384,9 @@ console.log("generatedText 0", generatedText)
       }
 
       // check if the chat already exists in the chatMessages array to avoid duplicates
-
       console.log("handleCreateMessages1")
       if (currentChat) {
-      const existingChat = chatMessages.find(msg => msg.message.chat_id === currentChat!.id) 
-      if (existingChat || currentChat.id == '') {
-        console.log("existingChat", existingChat)
+      if (currentChat.id == '') {
         return
       }
     }

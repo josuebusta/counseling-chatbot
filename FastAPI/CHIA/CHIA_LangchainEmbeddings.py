@@ -121,9 +121,13 @@ class HIVPrEPCounselor:
         if not self.api_key:
             raise ValueError("API key not found. Please set OPENAI_API_KEY in your .env file.")
 
+        prompt_price_per_1k = 0.0
+        completion_token_price_per_1k = 0.0 
+
         self.config_list = {
-            "model": "gpt-4o-mini",
-            "api_key": self.api_key
+            "model": "ft:gpt-4o-2024-08-06:brown-university::B4YXCCUH",
+            "api_key": self.api_key,
+            "price" : [prompt_price_per_1k, completion_token_price_per_1k]
         }
 
         self.agent_history = []
@@ -135,8 +139,9 @@ class HIVPrEPCounselor:
 
     def setup_rag(self):
         prompt = PromptTemplate(
-        template="""You are a knowledgeable HIV prevention counselor. Use the following pieces of context to answer the question. If you don't find an exact answer, provide helpful general guidance and suggest connecting with a healthcare provider.
-        
+        template="""You are a knowledgeable HIV prevention counselor.
+        - The priority is to use the context to answer the question. 
+        - If the answer is in the context, make sure to only use all the information available in the context related to the question to answer the question. Do not make up any additional information.
 
         Context: {context}
 
@@ -206,6 +211,7 @@ class HIVPrEPCounselor:
         - Answer as a counselor using motivational interviewing techniques
         - Focus on what you can do to help
         - Provide clear next steps
+        - Only suggest the user to reach out to a healthcare provider who can offer personalized advice and support somtimes when necessary. BUT do not do it too often as it can be annoying.
 
         REMEMBER: 
         If the answer is unclear, focus on connecting them with healthcare providers who can help."""

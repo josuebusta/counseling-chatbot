@@ -3,7 +3,7 @@ import json
 
 client = OpenAI()
 
-output_file = "/Users/amaris/Desktop/AI_coder/counselling-chatbot/FastAPI/CHIA/motivational_interviewing_dataset.jsonl"
+output_file = "ft:gpt-4o-2024-08-06:brown-university::B4YXCCUH"
 
 # Upload the file for fine-tuning
 with open(output_file, "rb") as file:

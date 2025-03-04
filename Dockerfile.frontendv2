@@ -1,5 +1,10 @@
 FROM node:18-slim AS builder
 
+# Install required dependencies for sharp
+RUN apt-get update && \
+    apt-get install -y build-essential python3 libvips-dev && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /chatbot-ui-shadcn
 
 # Create directory and set permissions before copying files
@@ -23,6 +28,7 @@ COPY --chown=node:node ./chatbot-ui-shadcn ./
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS="--max_old_space_size=4096"
+ENV DOCKER_BUILD=true
 
 # Build the application
 RUN npm run build
