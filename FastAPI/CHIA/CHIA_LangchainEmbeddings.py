@@ -21,6 +21,15 @@ from .functions import search_provider, assess_ttm_stage_single_question, assess
 import time
 import hashlib
 from typing import Set, Dict, Optional
+import platform
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from bs4 import BeautifulSoup
+import pandas as pd
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 # CONFIGURATION 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -108,7 +117,6 @@ class TrackableGroupChatManager(autogen.GroupChatManager):
             print(f"Error sending message: {e}")
 
 
-
 class HIVPrEPCounselor:
     def __init__(self, websocket: WebSocket, user_id: str, chat_id: str = None):
         load_dotenv()
@@ -117,19 +125,23 @@ class HIVPrEPCounselor:
         print("chat_id", self.chat_id)
         self.api_key = os.getenv('OPENAI_API_KEY')
         self.websocket = websocket
+        self._vectorstore = None  # For caching
+        self._qa_chain = None  # For caching
+        self.response_cache = {}  # Cache for common responses
 
         if not self.api_key:
             raise ValueError("API key not found. Please set OPENAI_API_KEY in your .env file.")
 
-        prompt_price_per_1k = 0.0
-        completion_token_price_per_1k = 0.0 
-
+        # Use less expensive models for non-critical tasks
         self.config_list = {
             "model": "ft:gpt-4o-2024-08-06:brown-university::B4YXCCUH",
             "api_key": self.api_key,
-            "price" : [prompt_price_per_1k, completion_token_price_per_1k]
+            "price": [1.25, 1.25]
         }
 
+        # Use a more efficient embedding model
+        self.embedding_model = "text-embedding-3-small"
+        
         self.agent_history = []
         self.setup_rag()
         self.initialize_agents()
@@ -138,39 +150,81 @@ class HIVPrEPCounselor:
         return x.get("content", "").rstrip().lower() == "end conversation"
 
     def setup_rag(self):
-        prompt = PromptTemplate(
-        template="""You are a knowledgeable HIV prevention counselor.
-        - The priority is to use the context to answer the question. 
-        - If the answer is in the context, make sure to only use all the information available in the context related to the question to answer the question. Do not make up any additional information.
+        # Check if we already have the vectorstore cached
+        if self._vectorstore is None:
+            prompt = PromptTemplate(
+                template="""You are a knowledgeable HIV prevention counselor.
+                - The priority is to use the context to answer the question. 
+                - If the answer is in the context, make sure to only use all the information available in the context related to the question to answer the question. Do not make up any additional information.
 
-        Context: {context}
+                Context: {context}
 
-        Question: {question}
+                Question: {question}
 
-        - Use "sex without condoms" instead of "unprotected sex"
-        - Use "STI" instead of "STD"
+                - Use "sex without condoms" instead of "unprotected sex"
+                - Use "STI" instead of "STD"
 
-        If the answer is not in the context, do not say "I don't know." Instead, provide helpful guidance based on what you do know but do not mention the answer is not in the context.
-        If the answer is in the context, do not add information to the answer. You should use motivational interviewing techniques to answer the question.
+                If the answer is not in the context, do not say "I don't know." Instead, provide helpful guidance based on what you do know but do not mention the answer is not in the context.
+                If the answer is in the context, do not add information to the answer. You should use motivational interviewing techniques to answer the question.
 
-        Answer: """,
-        input_variables=["context", "question"]
-    )
+                Answer: """,
+                input_variables=["context", "question"]
+            )
 
-        loader = WebBaseLoader("https://github.com/amarisg25/embedding-data-chatbot/blob/main/HIV_PrEP_knowledge_embedding.json")
-        data = loader.load()
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-        all_splits = text_splitter.split_documents(data)
-        vectorstore = Chroma.from_documents(documents=all_splits, embedding=OpenAIEmbeddings(openai_api_key=self.api_key))
-        llm = ChatOpenAI(model_name="gpt-4o", temperature=0)
-        retriever = vectorstore.as_retriever()
-        self.qa_chain = RetrievalQA.from_chain_type(
-            llm, retriever=retriever, chain_type_kwargs={"prompt": prompt}
-        )
+            try:
+                # Try to load from disk first
+                self._vectorstore = Chroma(
+                    persist_directory="./chroma_db", 
+                    embedding_function=OpenAIEmbeddings(
+                        model=self.embedding_model,
+                        openai_api_key=self.api_key
+                    )
+                )
+                print("Loaded vectorstore from disk")
+            except Exception:
+                # If not available, create and persist
+                loader = WebBaseLoader("https://github.com/amarisg25/embedding-data-chatbot/blob/main/HIV_PrEP_knowledge_embedding.json")
+                data = loader.load()
+                text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+                all_splits = text_splitter.split_documents(data)
+                
+                self._vectorstore = Chroma.from_documents(
+                    documents=all_splits, 
+                    embedding=OpenAIEmbeddings(
+                        model=self.embedding_model,
+                        openai_api_key=self.api_key
+                    ),
+                    persist_directory="./chroma_db"
+                )
+                self._vectorstore.persist()
+                print("Created and persisted new vectorstore")
+
+
+            llm = ChatOpenAI(model_name="ft:gpt-4o-2024-08-06:brown-university::B4YXCCUH", temperature=0)
+            retriever = self._vectorstore.as_retriever(
+                search_kwargs={"k": 3}  # Limit to most relevant chunks
+            )
+            
+            self._qa_chain = RetrievalQA.from_chain_type(
+                llm, retriever=retriever, chain_type_kwargs={"prompt": prompt}
+            )
 
     def answer_question(self, question: str) -> str:
-        self.result = self.qa_chain.invoke({"query": question})
-        return self.result.get("result", "I'm sorry, I couldn't find an answer to that question.")
+        # Check cache first
+        cache_key = question.lower().strip()
+        if cache_key in self.response_cache:
+            print("Cache hit!")
+            return self.response_cache[cache_key]
+        
+        # Not in cache, get from QA chain
+        self.result = self._qa_chain.invoke({"query": question})
+        answer = self.result.get("result", "I'm sorry, I couldn't find an answer to that question.")
+        
+        # Cache the result for future use (limit cache size)
+        if len(self.response_cache) < 100:  # Prevent unlimited growth
+            self.response_cache[cache_key] = answer
+            
+        return answer
 
     def initialize_agents(self):
         counselor_system_message = """You are CHIA, the primary HIV PrEP counselor.
@@ -216,7 +270,6 @@ class HIVPrEPCounselor:
         REMEMBER: 
         If the answer is unclear, focus on connecting them with healthcare providers who can help."""
 
-
         patient = autogen.UserProxyAgent(
             name="patient",
             human_input_mode="ALWAYS",
@@ -245,17 +298,14 @@ class HIVPrEPCounselor:
             websocket=self.websocket
         )
 
-                
-        self.agents = [counselor,patient, counselor_assistant]
+        self.agents = [counselor, patient, counselor_assistant]
 
+        # Function definitions
         def answer_question_wrapper(user_question: str) -> str:
             return self.answer_question(user_question)
         
         async def assess_hiv_risk_wrapper() -> str:
-            response = await assess_hiv_risk(self.websocket)
-            response = response.replace("unprotected sexual intercourse", "sex")
-            response = response.replace("STD", "STI")
-            return response
+            return await assess_hiv_risk(self.websocket)
         
         def search_provider_wrapper(zip_code: str) -> str:
             return search_provider(zip_code)
@@ -264,10 +314,10 @@ class HIVPrEPCounselor:
             return await assess_ttm_stage_single_question(self.websocket)
         
         async def record_support_request_wrapper() -> str:
-            """Wrapper to handle the async record_support_request function"""
             return await record_support_request(self.websocket, self.chat_id)
+        
 
-                
+        # Register functions
         autogen.agentchat.register_function(
             record_support_request_wrapper,
             caller=counselor_assistant,
@@ -287,7 +337,6 @@ class HIVPrEPCounselor:
             name="assess_status_of_change",
             description="Assesses the status of change for the patient.",
         )
-
 
         autogen.agentchat.register_function(
             answer_question_wrapper,
@@ -320,9 +369,6 @@ class HIVPrEPCounselor:
             counselor_assistant: [counselor, counselor_assistant],
             patient: []
         }
-
-
-        
         
         self.group_chat = autogen.GroupChat(
             agents=self.agents,
@@ -344,36 +390,17 @@ class HIVPrEPCounselor:
                 3. Never have multiple agents respond to the same user message,
                 4. Ensure counselor responds first using FAQ agent's knowledge, 
                 unless explicitly asked for risk assessment or provider search
-
-
-                
                 """,
             websocket=self.websocket
         )
 
-        # Adding Teachability
-        teachability = Teachability(
-            reset_db=False,
-            path_to_db_dir="./tmp/interactive/teachability_db/{self.user_id}"
-        )
-        # Create a unique path and collection name for each user's teachability database
-        user_db_path = os.path.join(
-            "./tmp/interactive/teachability_db",
-            f"user_{self.user_id}"
-        )
-        
-        # Ensure the directory exists
-        os.makedirs(user_db_path, exist_ok=True)
 
-        # Initialize Teachability with user-specific path and collection name
         collection_name = f"memos_{self.user_id}"
         user_db_path = os.path.join(
             "./tmp/interactive/teachability_db",
             f"user_{self.user_id}"
         )
 
-    
-    # Initialize Teachability with thread-safe MemoStore
         teachability = Teachability(
             reset_db=False,
             path_to_db_dir=user_db_path,
@@ -381,8 +408,7 @@ class HIVPrEPCounselor:
             verbosity=0
         )
         teachability.add_to_agent(counselor)
-        teachability.add_to_agent(counselor_assistant)
-
+        
 
     def update_history(self, recipient, message, sender):
         self.agent_history.append({
@@ -417,7 +443,7 @@ class HIVPrEPCounselor:
             print("user_input", user_input)
             await self.agents[1].a_initiate_chat(
                 recipient=self.manager,
-                message= str(user_input),
+                message=str(user_input),
                 websocket=self.websocket,
                 clear_history=False,
                 system_message="""Ensure counselor responds first using FAQ agent's knowledge, 
@@ -428,4 +454,5 @@ class HIVPrEPCounselor:
             raise
 
     def get_history(self):
-        return self.agent_history   
+        return self.agent_history
+

@@ -27,6 +27,7 @@ import os
 from datetime import datetime, timezone
 from .accuracy_evaluation import evaluate_counseling_response
 from .MI_evaluation import evaluate_motivational_interview
+import asyncio
 
 
 async def assess_hiv_risk(websocket) -> str:
@@ -123,14 +124,11 @@ def search_provider(zip_code: str) -> Dict:
             submit_button.click()
             print("Clicked submit button")
             
-            time.sleep(5)  # Wait for results to load
-
-            # Rest of your existing code...
+            time.sleep(5)  
             html = driver.page_source
             soup = BeautifulSoup(html, 'html.parser')
             results = soup.find_all('div', class_='locator-results-item')
             
-            # Extract information from each result item
             extracted_data = []
             for result in results:
                 name = result.find('h3').text.strip() if result.find('h3') else 'N/A'
@@ -149,7 +147,6 @@ def search_provider(zip_code: str) -> Dict:
             if not extracted_data:
                 return "I couldn't find any providers in that area. Would you like to try a different ZIP code?"
 
-            # Create DataFrame and filter results
             df = pd.DataFrame(extracted_data)
             df['Distance'] = df['Distance'].str.replace(r'[^\d.]+', '', regex=True)
             df['Distance'] = pd.to_numeric(df['Distance'], errors='coerce')
@@ -158,7 +155,6 @@ def search_provider(zip_code: str) -> Dict:
             if filtered_df.empty:
                 return "I couldn't find any providers within 30 miles of that ZIP code. Would you like to try a different ZIP code?"
 
-            # Format results
             formatted_results = "Here are the 5 closest providers to you:\n\n"
             for _, provider in filtered_df.iterrows():
                 formatted_results += f"{provider['Name']}\n"
@@ -172,7 +168,7 @@ def search_provider(zip_code: str) -> Dict:
 
         except Exception as e:
             print(f"Error during search: {str(e)}")
-            print("Page source:", driver.page_source)  # This will help debug page loading issues
+            print("Page source:", driver.page_source)  
             raise
             
     except Exception as e:
@@ -564,3 +560,106 @@ async def check_inactive_chats():
     except Exception as e:
         print(f"An error occurred: {e}")
 
+
+async def create_transcript():
+    try:
+        # Get all chats that don't have transcripts
+        non_transcribed_chats = supabase.table("messages") \
+            .select("chat_id") \
+            .is_("has_transcript", False) \
+            .execute()
+
+        chat_ids = list(set(msg["chat_id"] for msg in non_transcribed_chats.data or []))
+        
+        if not chat_ids:
+            print("No chats without transcripts found.")
+            return "No chats need transcripts"
+
+        for chat_id in chat_ids:
+            # Check chat activity status
+            chat_response = supabase.table("chats")\
+                .select("updated_at", "created_at")\
+                .eq("id", chat_id.strip())\
+                .execute()
+            
+            updated_at_str = chat_response.data[0]['updated_at']
+            if not updated_at_str:
+                updated_at_str = chat_response.data[0]['created_at']
+            if not updated_at_str:
+                print(f"No timestamp found for chat_id: {chat_id}")
+                continue
+                
+            # Convert to datetime and check inactivity
+            updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
+            current_time = datetime.now(timezone.utc)
+            
+            # Only proceed if chat has been inactive for more than 5 minutes
+            if (current_time - updated_at).total_seconds() <= 300:
+                print(f"Chat {chat_id} is still active, skipping")
+                continue
+
+            # Fetch chat history
+            chat_history = supabase.table("messages")\
+                .select("*")\
+                .eq("chat_id", chat_id)\
+                .is_("has_transcript", False)\
+                .execute()
+            
+            if not chat_history.data:
+                print(f"No messages found for chat {chat_id}")
+                continue
+
+            # Create transcript
+            transcript = ""
+            user_id = None  
+            for message in chat_history.data:   
+                role = message["role"]
+                content = message["content"]
+                if user_id is None:  
+                    user_id = message["user_id"]
+                transcript += f"{role}: {content}\n"
+            
+            transcript_data = {
+                "user_id": user_id,
+                "chat_id": chat_id,
+                "messages": transcript
+            }
+            
+            # Move this try-except block inside the chat_id loop
+            try:
+                before_state = supabase.table("messages")\
+                    .select("id, chat_id, has_transcript")\
+                    .eq("chat_id", chat_id)\
+                    .execute()
+               
+                transcript_response = supabase.table("transcripts")\
+                    .insert(transcript_data)\
+                    .execute()
+        
+                if transcript_response.data:
+                    # Modified update query to be more explicit
+                    for message in before_state.data:
+                        update_response = supabase.table("messages")\
+                            .update({"has_transcript": True})\
+                            .eq("id", message['id'])\
+                            .execute()
+                        print(f"Updated message {message['id']}: {update_response.data}")
+                    
+                   
+                   
+            except Exception as e:
+                print(f"Error processing chat {chat_id}: {e}")
+                continue
+
+    except Exception as e:
+        print(f"Error in create_transcript: {e}")
+        return "Error creating transcripts"
+
+    return "Transcripts created successfully"
+
+
+if __name__ == "__main__":
+    asyncio.run(create_transcript())
+
+
+                

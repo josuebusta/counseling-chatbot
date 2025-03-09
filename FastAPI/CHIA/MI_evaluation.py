@@ -43,7 +43,7 @@ supabase = create_client(
 )
 
 # accuracy evaluation
-def evaluate_counseling_response(chat_id: str, chat_response: str, context_file_path: str = "/Users/amaris/Desktop/AI_coder/counselling-chatbot/FastAPI/embeddings/HIV_PrEP_knowledge_embedding.json") -> EvaluationResult:
+def evaluate_counseling_response(chat_id: str, chat_response: str, context_file_path: str = "FastAPI/embeddings/HIV_PrEP_knowledge_embedding.json") -> EvaluationResult:
     """
     Evaluates if an HIV counseling chat response follows motivational interviewing guidelines.
     
@@ -135,7 +135,7 @@ def evaluate_counseling_response(chat_id: str, chat_response: str, context_file_
 
 
 # motivational interview evaluation
-def evaluate_motivational_interview(chat_id: str, chat_response: str, context_file_path: str = "/Users/amaris/Desktop/AI_coder/counselling-chatbot/FastAPI/CHIA/motivational_interviewing_dataset.jsonl") -> EvaluationResult:
+def evaluate_motivational_interview(chat_id: str, chat_response: str, context_file_path: str = "FastAPI/CHIA/motivational_interviewing_dataset.jsonl") -> EvaluationResult:
     """
     Evaluates if a counseling response follows motivational interviewing principles.
     

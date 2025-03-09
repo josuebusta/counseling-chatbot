@@ -30,7 +30,8 @@ export const ModelIcon: FC<ModelIconProps> = ({
       return (
         <OpenAISVG
           className={cn(
-            "rounded-sm bg-white p-1 text-black",
+            //"rounded-sm bg-white p-1 text-black",
+            "rounded-sm",
             props.className,
             theme === "dark" ? "bg-white" : "border-DEFAULT border-black"
           )}

@@ -15,9 +15,10 @@ from CHIA.CHIA_LangchainEmbeddings import HIVPrEPCounselor
 import hashlib
 import time
 from fastapi import BackgroundTasks
-from CHIA.functions import check_inactive_chats, get_chat_history
+from CHIA.functions import check_inactive_chats, get_chat_history, create_transcript
 from contextlib import asynccontextmanager
 from datetime import datetime
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -44,6 +45,7 @@ async def run_inactive_chat_checker():
 
             await get_chat_history()
             await check_inactive_chats()
+            await create_transcript()
             
             logger.info(f"Check #{counter} completed")
             counter += 1

@@ -50,7 +50,7 @@ supabase = create_client(
 )
 
 # accuracy evaluation
-def evaluate_counseling_response(chat_id: str, chat_response: str, context_file_path: str = "/Users/amaris/Desktop/AI_coder/counselling-chatbot/FastAPI/embeddings/HIV_PrEP_knowledge_embedding.json") -> EvaluationResult:
+def evaluate_counseling_response(chat_id: str, chat_response: str, context_file_path: str = "FastAPI/embeddings/HIV_PrEP_knowledge_embedding.json") -> EvaluationResult:
     """
     Evaluates if an HIV counseling chat response is properly grounded in the reference context.
     
@@ -141,9 +141,3 @@ def evaluate_counseling_response(chat_id: str, chat_response: str, context_file_
         return None
 
 
-# motivational interview evaluation
-def evaluate_motivational_interview(chat_id: str, chat_response: str, context_file_path: str = "/Users/amaris/Desktop/AI_coder/counselling-chatbot/FastAPI/embeddings/HIV_PrEP_knowledge_embedding.json") -> EvaluationResult:
-    """
-    Evaluates a motivational interview response based on the reference context.
-    
-    """
