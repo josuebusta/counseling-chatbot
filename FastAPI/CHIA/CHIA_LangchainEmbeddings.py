@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import json
 from langchain_community.document_loaders import DirectoryLoader, JSONLoader, WebBaseLoader
 from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_openai import ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
@@ -14,13 +14,13 @@ from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProx
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-from typing import List
+from typing import List, Union, Dict, Optional
 import os
 from autogen.agentchat.contrib.capabilities.teachability import Teachability
 from .functions import search_provider, assess_ttm_stage_single_question, assess_hiv_risk, notify_research_assistant, record_support_request
 import time
 import hashlib
-from typing import Set, Dict, Optional
+from typing import Set
 import platform
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -30,9 +30,154 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import shutil
+import chromadb
+from chromadb.config import Settings
+import sqlite3
+from supabase import create_client
+
 
 # CONFIGURATION 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+
+class SupabaseTeachability(Teachability):
+    def __init__(self, *args, user_id=None, supabase_client=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not supabase_client:
+            raise ValueError("Supabase client is required")
+        self.supabase = supabase_client  # Store the client
+        self.user_id = user_id
+        self.embedding_model = "text-embedding-3-small"
+        self.api_key = os.getenv('OPENAI_API_KEY')
+        print(f"SupabaseTeachability initialized with user_id: {self.user_id}")
+        print(f"Supabase client available: {self.supabase is not None}")
+
+    def _consider_memo_storage(self, comment: Union[Dict, str]):
+        if not self.supabase:
+            print("No Supabase client available")
+            return False
+            
+        print(f"\nAnalyzing for memory storage with Supabase client: {self.supabase is not None}")
+        
+        response = self._analyze(
+            comment,
+            "Does the TEXT contain information that could be committed to memory? Remember information that the user shares about themselves and their health. Answer with just one word, yes or no.",
+        )
+        print(f"Should store memory? {response}")
+        
+        if "yes" in response.lower():
+            question = self._analyze(
+                comment,
+                "Imagine that the user forgot this information in the TEXT. How would they ask you for this information?",
+            )
+            answer = self._analyze(
+                comment, 
+                "Copy the information from the TEXT that should be committed to memory."
+            )
+            
+            try:
+                # Store in Supabase
+                result = self.supabase.table("teachability_memos").insert({
+                    "user_id": self.user_id,
+                    "question": question,
+                    "answer": answer,
+                    "embedding": self._get_embedding(question)
+                }).execute()
+                
+                print(f"\nStored new memo in Supabase:")
+                print(f"Question: {question}")
+                print(f"Answer: {answer}")
+                print(f"Response from Supabase: {result.data}")
+                
+                return True
+                
+            except Exception as e:
+                print(f"Error storing memo: {e}")
+                return False
+
+        return False
+
+    def _consider_memo_retrieval(self, comment: Union[Dict, str]):
+        """Override retrieval to use Supabase"""
+        try:
+            if isinstance(comment, dict):
+                comment = comment.get('content', '')
+            
+            query_embedding = self._get_embedding(comment)
+            
+            # First verify the memos exist
+            all_memos = self.supabase.table("teachability_memos")\
+                .select("*")\
+                .eq("user_id", self.user_id)\
+                .execute()
+            
+            # Try similarity search
+            result = self.supabase.rpc(
+                'match_memos',
+                {
+                    'match_threshold': 0.5,
+                    'query_embedding': query_embedding,
+                    'search_user_id': self.user_id
+                }
+            ).execute()
+            
+            print(f"Similarity search result: {result.data}")
+            
+            # If we found matches, include the memory
+            if result.data:
+                best_match = result.data[0]
+                print(f"Best match found: {best_match}")
+                return f"{comment}\n\nI remember: {best_match['answer']}"
+            
+            # If no matches but we know memos exist, try direct lookup for name
+            elif all_memos.data:
+                for memo in all_memos.data:
+                    if "name" in memo['question'].lower():
+                        print(f"Found name via direct lookup: {memo['answer']}")
+                        return f"{comment}\n\nI remember: {memo['answer']}"
+            
+            return comment
+            
+        except Exception as e:
+            print(f"Error retrieving memos: {e}")
+            print(f"Current user_id: {self.user_id}")
+            return comment
+
+    def _get_embedding(self, text: str) -> List[float]:
+        """Get embedding for text using OpenAI"""
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=self.api_key)
+            response = client.embeddings.create(
+                model=self.embedding_model,
+                input=text
+            )
+            return response.data[0].embedding
+        except Exception as e:
+            print(f"Error getting embedding: {e}")
+            return []
+
+    def check_stored_memos(self):
+        """Utility function to check all stored memos for this user"""
+        try:
+            result = self.supabase.table("teachability_memos")\
+                .select("*")\
+                .eq("user_id", self.user_id)\
+                .execute()
+            
+            print(f"\n=== Stored Memos for user {self.user_id} ===")
+            for memo in result.data:
+                print("\n--- Memo ---")
+                print(f"Question: {memo['question']}")
+                print(f"Answer: {memo['answer']}")
+                print(f"Created: {memo['created_at']}")
+                print("-" * 50)
+                
+            return result.data
+        except Exception as e:
+            print(f"Error checking memos: {e}")
+            return []
 
 
 class TrackableGroupChatManager(autogen.GroupChatManager):
@@ -202,7 +347,7 @@ class HIVPrEPCounselor:
 
             llm = ChatOpenAI(model_name="ft:gpt-4o-2024-08-06:brown-university::B4YXCCUH", temperature=0)
             retriever = self._vectorstore.as_retriever(
-                search_kwargs={"k": 3}  # Limit to most relevant chunks
+                search_kwargs={"k": 3} 
             )
             
             self._qa_chain = RetrievalQA.from_chain_type(
@@ -394,22 +539,57 @@ class HIVPrEPCounselor:
             websocket=self.websocket
         )
 
+    
+        
+        # Initialize Supabase client
+        supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
+        supabase_key = os.getenv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+        
+        print(f"Initializing with Supabase URL: {supabase_url is not None}")
+        print(f"Initializing with Supabase Key: {supabase_key is not None}")
+        
+        if not supabase_url or not supabase_key:
+            raise ValueError("Supabase URL and key are required")
+        
+        try:
+            supabase_client = create_client(supabase_url, supabase_key)
+            # Test connection
+            test = supabase_client.table("teachability_memos").select("id").limit(1).execute()
+            print("Supabase connection successful")
+        except Exception as e:
+            print(f"Error connecting to Supabase: {e}")
+            raise
 
-        collection_name = f"memos_{self.user_id}"
+        # Initialize Teachability with user-specific path and collection name
         user_db_path = os.path.join(
             "./tmp/interactive/teachability_db",
             f"user_{self.user_id}"
         )
-
-        teachability = Teachability(
+        os.makedirs(user_db_path, exist_ok=True)
+        
+        collection_name = f"memos_{self.user_id}"
+        print(f"Initializing Teachability with path: {user_db_path}")
+    
+        
+        # Create teachability instance
+        teachability = SupabaseTeachability(
             reset_db=False,
             path_to_db_dir=user_db_path,
+            recall_threshold=1.5,
             collection_name=collection_name,
-            verbosity=0
+            verbosity=1,
+            user_id=self.user_id,
+            supabase_client=supabase_client  # Pass the client here
         )
-        teachability.add_to_agent(counselor)
         
-
+        # Test storing a memo to ensure database creation
+        # teachability.list_memos()
+        print("Teachability initialized and test memo stored")
+        
+        # Add to agents
+        teachability.add_to_agent(counselor)
+        teachability.add_to_agent(counselor_assistant)
+        
     def update_history(self, recipient, message, sender):
         self.agent_history.append({
             "sender": sender.name,
@@ -456,3 +636,45 @@ class HIVPrEPCounselor:
     def get_history(self):
         return self.agent_history
 
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    def export_readable_db(user_id: str):
+        db_dir = f"/Users/amaris/Desktop/AI_coder/counselling-chatbot/FastAPI/tmp/interactive/teachability_db/user_{user_id}"
+        source_path = os.path.join(db_dir, "chroma.sqlite3")
+        
+        try:
+            conn = sqlite3.connect(source_path)
+            cursor = conn.cursor()
+            
+            print("\n=== Stored Memos ===")
+            # Look in embedding_fulltext_search_content for actual content
+            cursor.execute("""
+                SELECT e.id, e.embedding_id, c.c0
+                FROM embeddings e
+                JOIN embedding_fulltext_search_content c ON e.embedding_id = c.id
+                ORDER BY e.id DESC
+                LIMIT 20
+            """)
+            
+            rows = cursor.fetchall()
+            for row in rows:
+                print("\n--- Memo ---")
+                print(f"ID: {row[0]}")
+                print(f"Embedding ID: {row[1]}")
+                print(f"Content: {row[2]}")
+                print("-" * 50)
+                
+        except Exception as e:
+            print(f"Error reading database: {e}")
+            
+        finally:
+            if 'conn' in locals():
+                conn.close()
+    
+        
+# if __name__ == "__main__":
+#     user_id = "3be0e3d8-f360-464c-ae52-8da66a5c5964"
+#     print(f"Attempting to read database content for user: {user_id}")
+#     export_readable_db(user_id)

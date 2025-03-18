@@ -33,7 +33,7 @@ import asyncio
 async def assess_hiv_risk(websocket) -> str:
     """Conducts an HIV risk assessment through a series of questions."""
     questions = [
-        """I'll help assess your HIV risk factors. This will involve a few questions about your sexual health and activities. Everything you share is completely confidential, and I'm here to help without judgment. Let's go through this step by step.\n First question: Have you had sex without condoms in the past 3 months?""",
+        """I'll help assess your HIV risk factors. This will involve a few questions about your sexual health and activities. Please answer using "yes" or "no". Everything you share is completely confidential, and I'm here to help without judgment. Let's go through this step by step.\n First question: Have you had sex without condoms in the past 3 months?""",
         "Have you had multiple sexual partners in the past 12 months?",
         "Have you used intravenous drugs or shared needles?",
         "Do you have a sexual partner who is HIV positive or whose status you don't know?",
@@ -104,9 +104,8 @@ def search_provider(zip_code: str) -> Dict:
             print(f"Navigating to preplocator.org for zip code {zip_code}...")
             driver.get("https://preplocator.org/")
             print("Page loaded successfully")
-            time.sleep(5)  # Increased wait time
+            time.sleep(5)  
 
-            # Print page source for debugging
             print("Page source length:", len(driver.page_source))
             
             print("Looking for search box...")
@@ -258,7 +257,7 @@ def notify_research_assistant(support_type, assistant_email, client_id, smtp_ser
     message["To"] = assistant_email
     message["Subject"] = subject
     
-    # Customize the email body with details about the client and the support type
+
     body = f"""
     Hello,
 
@@ -410,7 +409,6 @@ async def handle_inactivity(user_id, last_activity_time):
 
 async def get_chat_history():
     try:
-
         max_chats = 50
         non_evaluated_chats = supabase.table("chats") \
             .select("id") \
@@ -425,26 +423,8 @@ async def get_chat_history():
         chat_ids = chat_ids[:max_chats]
 
         for chat_id in chat_ids:
-            current_time = datetime.now(timezone.utc)
-      
-            chat_response = supabase.table("chats")\
-                            .select("updated_at", "created_at")\
-                            .eq("id", chat_id.strip())\
-                            .execute()
-            
-            updated_at_str = chat_response.data[0]['updated_at']
-            if not updated_at_str:
-                updated_at_str = chat_response.data[0]['created_at']
-            if updated_at_str:
-                updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
-            
-            else:
-                print("No updated_at found for chat_id:", chat_id)
-                continue
-                
-            print("updated at", updated_at)
-            if (current_time - updated_at).total_seconds() > 300:
-            
+            try:
+        
                 history_response = supabase.table("messages") \
                     .select('*') \
                     .eq("chat_id", chat_id) \
@@ -470,11 +450,16 @@ async def get_chat_history():
                     .in_("id", chat_ids) \
                     .execute()
 
+            except Exception as e:
+                print(f"Error processing chat {chat_id}: {e}")
+                continue
+
         return chat_history
 
     except Exception as e:
         print(f"Error processing chat history: {e}")
         return None
+
 
 
 
@@ -496,6 +481,8 @@ async def check_inactive_chats():
         #current time
         current_time = datetime.now(timezone.utc)
 
+        
+
         # Filter support requests where the last activity was more than 5 minutes ago
         updates = []
         for request in support_requests:
@@ -515,11 +502,6 @@ async def check_inactive_chats():
                         .eq("id", request['chat_id'].strip())\
                         .execute()
                     # print("chat_response", chat_response)
-
-        
-                        
-          
-                    
                     updated_at_str = chat_response.data[0]['updated_at']
                     if updated_at_str:
                         updated_at = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
@@ -627,6 +609,22 @@ async def create_transcript():
             
             # Move this try-except block inside the chat_id loop
             try:
+                transcript_chat_ids = [chat["chat_id"] for chat in supabase.table("transcripts").select("chat_id").execute().data or []]
+                if chat_id in transcript_chat_ids:
+                    update_response = supabase.table("messages")\
+                            .update({"has_transcript": True})\
+                            .eq("id", message['id'])\
+                            .execute()
+                    print(f"Updated message {message['id']}: {update_response.data}")
+                    print("Chat already has a transcript, skipping")
+
+                    verify = supabase.table("messages") \
+                    .select("id, has_transcript") \
+                    .eq("chat_id", chat_id) \
+                    .execute()
+                    print(f"Verification of update for chat {chat_id}: {verify.data}")
+
+                    continue
                 before_state = supabase.table("messages")\
                     .select("id, chat_id, has_transcript")\
                     .eq("chat_id", chat_id)\
@@ -648,7 +646,7 @@ async def create_transcript():
                    
                    
             except Exception as e:
-                print(f"Error processing chat {chat_id}: {e}")
+                print(f"Error processing chat 2 {chat_id}: {e}")
                 continue
 
     except Exception as e:
