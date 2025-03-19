@@ -35,6 +35,8 @@ import chromadb
 from chromadb.config import Settings
 import sqlite3
 from supabase import create_client
+import openai
+from openai import OpenAI
 
 
 # CONFIGURATION 
@@ -62,7 +64,7 @@ class SupabaseTeachability(Teachability):
         
         response = self._analyze(
             comment,
-            "Does the TEXT contain information that could be committed to memory? Remember information that the user shares about themselves and their health. Answer with just one word, yes or no.",
+            "Does the TEXT contain information that could be committed to memory? Remember information that the user shares about themselves and their health. Very important: If the user updates any information, you should store the new information and only reference the new information. Answer with just one word, yes or no.",
         )
         print(f"Should store memory? {response}")
         
@@ -99,49 +101,43 @@ class SupabaseTeachability(Teachability):
         return False
 
     def _consider_memo_retrieval(self, comment: Union[Dict, str]):
-        """Override retrieval to use Supabase"""
+        """Uses LLM to determine the best match for the query from stored memos."""
         try:
             if isinstance(comment, dict):
                 comment = comment.get('content', '')
-            
-            query_embedding = self._get_embedding(comment)
-            
-            # First verify the memos exist
+                print(f"Comment: {comment}")
+
+            # Retrieve all memos for the user
             all_memos = self.supabase.table("teachability_memos")\
-                .select("*")\
+                .select("question, answer")\
                 .eq("user_id", self.user_id)\
                 .execute()
-            
-            # Try similarity search
-            result = self.supabase.rpc(
-                'match_memos',
-                {
-                    'match_threshold': 0.5,
-                    'query_embedding': query_embedding,
-                    'search_user_id': self.user_id
-                }
-            ).execute()
-            
-            print(f"Similarity search result: {result.data}")
-            
-            # If we found matches, include the memory
-            if result.data:
-                best_match = result.data[0]
-                print(f"Best match found: {best_match}")
-                return f"{comment}\n\nI remember: {best_match['answer']}"
-            
-            # If no matches but we know memos exist, try direct lookup for name
-            elif all_memos.data:
-                for memo in all_memos.data:
-                    if "name" in memo['question'].lower():
-                        print(f"Found name via direct lookup: {memo['answer']}")
-                        return f"{comment}\n\nI remember: {memo['answer']}"
-            
-            return comment
-            
+
+            if not all_memos.data:
+                return comment
+
+            # Use LLM to find the best match
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": f"Given the query: '{comment}', which of the following answers best matches the query context?"}
+            ]
+            for memo in all_memos.data:
+                messages.append({"role": "user", "content": f"Question: {memo['question']}\nAnswer: {memo['answer']}"})
+
+            client = OpenAI(api_key=self.api_key)
+
+            response =  client.chat.completions.create(
+                messages=messages,
+                model="gpt-3.5-turbo",
+               
+            )
+
+            best_match = response.choices[0].message.content
+            print(f"Best match: {best_match}")
+            return f"{comment}\n\nI remember: {best_match}"
+
         except Exception as e:
             print(f"Error retrieving memos: {e}")
-            print(f"Current user_id: {self.user_id}")
             return comment
 
     def _get_embedding(self, text: str) -> List[float]:

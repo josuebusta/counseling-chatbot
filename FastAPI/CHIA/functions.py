@@ -580,11 +580,12 @@ async def create_transcript():
                 print(f"Chat {chat_id} is still active, skipping")
                 continue
 
-            # Fetch chat history
+            # Fetch chat history with ordering
             chat_history = supabase.table("messages")\
                 .select("*")\
                 .eq("chat_id", chat_id)\
                 .is_("has_transcript", False)\
+                .order("created_at", desc=False)\
                 .execute()
             
             if not chat_history.data:
@@ -593,13 +594,14 @@ async def create_transcript():
 
             # Create transcript
             transcript = ""
-            user_id = None  
-            for message in chat_history.data:   
+            user_id = None
+            for message in chat_history.data:
                 role = message["role"]
                 content = message["content"]
-                if user_id is None:  
+                created_at = message.get("created_at", "")  # Optionally add timestamp
+                if user_id is None:
                     user_id = message["user_id"]
-                transcript += f"{role}: {content}\n"
+                transcript += f"{role}: {content}\n"  # Added timestamp to transcript
             
             transcript_data = {
                 "user_id": user_id,
