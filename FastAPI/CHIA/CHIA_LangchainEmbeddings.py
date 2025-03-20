@@ -289,7 +289,7 @@ class HIVPrEPCounselor:
             websocket=self.websocket
         )
 
-        counselor = autogen.UserProxyAgent(
+        counselor = autogen.AssistantAgent(
             name="counselor",
             system_message=counselor_system_message,
             is_termination_msg=lambda x: self.check_termination(x),
@@ -403,6 +403,33 @@ class HIVPrEPCounselor:
                 """,
             websocket=self.websocket
         )
+
+
+        user_db_path = os.path.join(
+            "./tmp/interactive/teachability_db",
+            f"user_{self.user_id}"
+        )
+        os.makedirs(user_db_path, exist_ok=True)
+        
+        collection_name = f"memos_{self.user_id}"
+        print(f"Initializing Teachability with path: {user_db_path}")
+    
+        
+        # Create teachability instance
+        teachability = Teachability(
+            reset_db=False,
+            path_to_db_dir=user_db_path,
+            recall_threshold=1.5,
+            verbosity=1
+        )
+        
+        # Test storing a memo to ensure database creation
+        # teachability.list_memos()
+        print("Teachability initialized and test memo stored")
+        
+        # Add to agents
+        teachability.add_to_agent(counselor)
+        teachability.add_to_agent(counselor_assistant)
 
       
 
