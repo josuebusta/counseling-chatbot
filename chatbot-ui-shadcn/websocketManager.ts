@@ -101,6 +101,14 @@ export class WebSocketManager {
     }));
 
   }
+
+  public async sendTeachabilityFlag(teachabilityFlag: boolean) {
+    if (!this.socket) return;
+    this.socket.send(JSON.stringify({
+      type: 'teachability_flag',
+      content: teachabilityFlag
+    }));
+  }
   
 
   public getSocket(setIsGenerating?: React.Dispatch<React.SetStateAction<boolean>>): WebSocket {

@@ -77,6 +77,7 @@ async def websocket_endpoint(websocket: WebSocket):
     message_cache: Dict[str, float] = {}
     chat_id = None
     chat_id_received = False
+    teachability_flag = None
     
     try:
         while True:
@@ -88,7 +89,7 @@ async def websocket_endpoint(websocket: WebSocket):
             if all(field in parsed_data for field in required_fields):
                 message_type = parsed_data['type']
                 content = parsed_data['content']
-                message_id = parsed_data['messageId']
+                message_id = parsed_data['messageId']  
                 print(f"Message Type: {message_type}, Content: {content}, Message ID: {message_id}")
             else:
                 print("Invalid message received:", parsed_data)
@@ -101,18 +102,23 @@ async def websocket_endpoint(websocket: WebSocket):
             print("content", content)
             message_id = parsed_data.get('messageId')
             print("message_id", message_id)
+
+            if message_type == "teachability_flag":
+                teachability_flag = content
+                print("teachability_flag", teachability_flag)   
+                continue
             
             # Handle user_id message
             if message_type == "user_id":
                 user_id = content
-                workflow_manager = HIVPrEPCounselor(websocket, user_id, chat_id)
+                workflow_manager = HIVPrEPCounselor(websocket, user_id, chat_id, teachability_flag)
                 continue
 
             if message_type == "chat_id":
                 chat_id = content
                 if chat_id_received:
                     continue
-                workflow_manager = HIVPrEPCounselor(websocket, user_id, chat_id)
+                workflow_manager = HIVPrEPCounselor(websocket, user_id, chat_id, teachability_flag)
                 chat_id_received = True
                 continue
             
@@ -122,7 +128,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     if chat_id_received:
                         continue
                     print("chat_id", chat_id)
-                    workflow_manager = HIVPrEPCounselor(websocket, user_id, chat_id)
+                    workflow_manager = HIVPrEPCounselor(websocket, user_id, chat_id, teachability_flag)
                     chat_id_received = True
                 continue
             

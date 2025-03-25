@@ -47,6 +47,7 @@ import { TextareaAutosize } from "../ui/textarea-autosize"
 import { WithTooltip } from "../ui/with-tooltip"
 import { ThemeSwitcher } from "./theme-switcher"
 import { wsManager } from '@/websocketManager';
+import { Switch } from "@/components/ui/switch"
 
 interface ProfileSettingsProps {}
 
@@ -90,6 +91,13 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
   const [groqAPIKey, setGroqAPIKey] = useState("")
   const [perplexityAPIKey, setPerplexityAPIKey] = useState("")
   const [openrouterAPIKey, setOpenrouterAPIKey] = useState("")
+  const [teachabilityFlag, setTeachabilityFlag] = useState(() => {
+  
+    const storedTeachabilityFlag = localStorage.getItem('teachabilityFlag')
+    return storedTeachabilityFlag !== null 
+      ? JSON.parse(storedTeachabilityFlag) 
+      : true
+  })
 
   console.log("Component mounted")
 
@@ -348,16 +356,17 @@ console.log("Querying for user ID:", session.user.id)
   )
 
   const handleSave = async () => {
-    if (!profile) return
-    let profileImageUrl = profile.image_url
-    let profileImagePath = ""
+    if (!profile) return;
+    let profileImageUrl = profile.image_url;
+    let profileImagePath = "";
 
     if (profileImageFile) {
-      const { path, url } = await uploadProfileImage(profile, profileImageFile)
-      profileImageUrl = url ?? profileImageUrl
-      profileImagePath = path
+      const { path, url } = await uploadProfileImage(profile, profileImageFile);
+      profileImageUrl = url ?? profileImageUrl;
+      profileImagePath = path;
     }
 
+    // Update profile in database
     const updatedProfile = await updateProfile(profile.id, {
       ...profile,
       display_name: displayName,
@@ -379,13 +388,22 @@ console.log("Querying for user ID:", session.user.id)
       azure_openai_45_turbo_id: azureOpenai45TurboID,
       azure_openai_45_vision_id: azureOpenai45VisionID,
       azure_openai_embeddings_id: azureEmbeddingsID,
-      openrouter_api_key: openrouterAPIKey
-    })
+      openrouter_api_key: openrouterAPIKey,
+    });
 
-    setProfile(updatedProfile)
-    toast.success("Profile updated!")
-    setIsOpen(false)
-  }
+    // After successful profile update:
+    setProfile(updatedProfile);
+    
+    // Update localStorage and send to backend only after successful save
+    localStorage.setItem('teachabilityFlag', JSON.stringify(teachabilityFlag));
+    // await wsManager.sendTeachabilityFlag(teachabilityFlag);
+    
+    toast.success("Profile updated!");
+    setIsOpen(false);
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter") {
@@ -403,7 +421,44 @@ console.log("Querying for user ID:", session.user.id)
 
   // if (!profile) return null
 
- 
+  // Add this useEffect to send teachability state when component mounts
+  useEffect(() => {
+    // Get initial state from localStorage
+    const storedTeachabilityFlag = localStorage.getItem('teachabilityFlag');
+    const initialState = storedTeachabilityFlag !== null 
+      ? JSON.parse(storedTeachabilityFlag) 
+      : true;
+    
+    // Set initial state
+    setTeachabilityFlag(initialState);
+    
+    // Send to backend
+    const sendInitialState = async () => {
+      try {
+        await wsManager.sendTeachabilityFlag(initialState);
+        console.log("[INIT] Sent initial teachability state:", initialState);
+      } catch (error) {
+        console.error("Error sending initial teachability state:", error);
+      }
+    };
+
+    // Send when WebSocket is ready
+    const ws = wsManager.getSocket();
+    if (ws.readyState === WebSocket.OPEN) {
+      sendInitialState();
+    } else {
+      ws.addEventListener('open', sendInitialState);
+    }
+
+    return () => {
+      ws.removeEventListener('open', sendInitialState);
+    };
+  }, []);
+
+  const handleTeachabilityToggle = async (checked: boolean) => {
+    // Only update the local state, don't send to backend yet
+    setTeachabilityFlag(checked);
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -510,6 +565,39 @@ console.log("Querying for user ID:", session.user.id)
                   onSrcChange={setProfileImageSrc}
                   onImageChange={setProfileImageFile}
                 />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label>Memory Enabled</Label>
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      className={`w-16 ${
+                        teachabilityFlag 
+                          ? "bg-green-500 hover:bg-green-600 text-white font-bold" 
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                      onClick={() => handleTeachabilityToggle(true)}
+                    >
+                      ON
+                    </Button>
+                    <Button
+                      size="sm"
+                      className={`w-16 ${
+                        !teachabilityFlag 
+                          ? "bg-red-500 hover:bg-red-600 text-white font-bold" 
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                      onClick={() => handleTeachabilityToggle(false)}
+                    >
+                      OFF
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  When enabled, the AI will remember information from your conversations
+                </p>
               </div>
 
               <div className="space-y-1">
@@ -873,3 +961,4 @@ console.log("Querying for user ID:", session.user.id)
     </Sheet>
   )
 }
+

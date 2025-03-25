@@ -624,8 +624,7 @@ async def create_transcript():
                     .select("id, has_transcript") \
                     .eq("chat_id", chat_id) \
                     .execute()
-                    print(f"Verification of update for chat {chat_id}: {verify.data}")
-
+                    
                     continue
                 before_state = supabase.table("messages")\
                     .select("id, chat_id, has_transcript")\

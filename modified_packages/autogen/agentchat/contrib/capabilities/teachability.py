@@ -40,7 +40,7 @@ class Teachability(AgentCapability):
         verbosity: Optional[int] = 0,
         reset_db: Optional[bool] = False,
         path_to_db_dir: Optional[str] = "./tmp/teachable_agent_db",
-        recall_threshold: Optional[float] = 1.5,
+        recall_threshold: Optional[float] = 2.53,
         max_num_retrievals: Optional[int] = 10,
         llm_config: Optional[Union[Dict, bool]] = None,
         collection_name: Optional[str] = "memos",

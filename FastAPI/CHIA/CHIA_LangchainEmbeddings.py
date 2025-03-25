@@ -128,16 +128,19 @@ class TrackableGroupChatManager(autogen.GroupChatManager):
 
 
 class HIVPrEPCounselor:
-    def __init__(self, websocket: WebSocket, user_id: str, chat_id: str = None):
+    def __init__(self, websocket: WebSocket, user_id: str, chat_id: str = None, teachability_flag: bool = None):
         load_dotenv()
         self.user_id = user_id
         self.chat_id = chat_id 
+        self.teachability_flag = teachability_flag
+        print(f"[INIT] Teachability flag set to: {self.teachability_flag}")
         print("chat_id", self.chat_id)
         self.api_key = os.getenv('OPENAI_API_KEY')
         self.websocket = websocket
         self._vectorstore = None  # For caching
         self._qa_chain = None  # For caching
         self.response_cache = {}  # Cache for common responses
+        self.teachability = None  # Add this line
 
         if not self.api_key:
             raise ValueError("API key not found. Please set OPENAI_API_KEY in your .env file.")
@@ -154,7 +157,14 @@ class HIVPrEPCounselor:
         
         self.agent_history = []
         self.setup_rag()
+        self.initialize_teachability()  # Move teachability initialization before agents
         self.initialize_agents()
+
+        # Store teachability state
+        self.teachability_flag = teachability_flag
+        
+        # Send initial teachability state to frontend
+        asyncio.create_task(self.send_teachability_state())
 
     def check_termination(self, x):
         return x.get("content", "").rstrip().lower() == "end conversation"
@@ -235,6 +245,24 @@ class HIVPrEPCounselor:
             self.response_cache[cache_key] = answer
             
         return answer
+
+    def initialize_teachability(self):
+        """Initialize teachability components"""
+        if self.teachability_flag:
+            user_db_path = os.path.join(
+                "./tmp/interactive/teachability_db",
+                f"user_{self.user_id}"
+            )
+            os.makedirs(user_db_path, exist_ok=True)
+            
+            self.teachability = Teachability(
+                reset_db=False,
+                path_to_db_dir=user_db_path,
+                recall_threshold=2.5,
+                verbosity=1
+            )
+            print(f"Teachability initialized with path: {user_db_path}")
+            print("Memo store contents:", self.teachability.memo_store)
 
     def initialize_agents(self):
         counselor_system_message = """You are CHIA, the primary HIV PrEP counselor.
@@ -403,37 +431,13 @@ class HIVPrEPCounselor:
                 """,
             websocket=self.websocket
         )
+        
 
+        # Move teachability addition here and use the class instance
+        if self.teachability_flag and self.teachability:
+            self.teachability.add_to_agent(counselor)
+            self.teachability.add_to_agent(counselor_assistant)
 
-        user_db_path = os.path.join(
-            "./tmp/interactive/teachability_db",
-            f"user_{self.user_id}"
-        )
-        os.makedirs(user_db_path, exist_ok=True)
-        
-        collection_name = f"memos_{self.user_id}"
-        print(f"Initializing Teachability with path: {user_db_path}")
-    
-        
-        # Create teachability instance
-        teachability = Teachability(
-            reset_db=False,
-            path_to_db_dir=user_db_path,
-            recall_threshold=1.5,
-            verbosity=1
-        )
-        
-        # Test storing a memo to ensure database creation
-        # teachability.list_memos()
-        print("Teachability initialized and test memo stored")
-        
-        # Add to agents
-        teachability.add_to_agent(counselor)
-        teachability.add_to_agent(counselor_assistant)
-
-      
-
-        
     def update_history(self, recipient, message, sender):
         self.agent_history.append({
             "sender": sender.name,
@@ -518,6 +522,38 @@ class HIVPrEPCounselor:
                 conn.close()
     
         
+    async def send_teachability_state(self):
+        """Send current teachability state to frontend"""
+        try:
+            await self.websocket.send_json({
+                "type": "teachability_flag",
+                "content": self.teachability_flag
+            })
+        except Exception as e:
+            print(f"Error sending teachability state: {e}")
+
+    
+
+    async def handle_websocket_message(self, message):
+        """Handle incoming websocket messages"""
+        try:
+            data = json.loads(message)
+            if data.get("type") == "teachability_flag":
+                new_state = data.get("content")
+                print(f"[UPDATE] Received teachability flag update: {new_state}")
+                self.teachability_flag = new_state
+                # Reinitialize agents with new teachability state
+                self.initialize_agents()
+                print(f"[CONFIRM] Teachability flag is now: {self.teachability_flag}")
+                
+                # Send confirmation back to frontend
+                await self.websocket.send_json({
+                    "type": "teachability_flag",
+                    "content": self.teachability_flag
+                })
+        except Exception as e:
+            print(f"Error handling websocket message: {e}")
+
 # if __name__ == "__main__":
 #     user_id = "3be0e3d8-f360-464c-ae52-8da66a5c5964"
 #     print(f"Attempting to read database content for user: {user_id}")
