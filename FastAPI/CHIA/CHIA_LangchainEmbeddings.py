@@ -37,6 +37,7 @@ import sqlite3
 from supabase import create_client
 import openai
 from openai import OpenAI
+from langchain.schema import Document
 
 
 # CONFIGURATION 
@@ -168,9 +169,10 @@ class HIVPrEPCounselor:
 
     def check_termination(self, x):
         return x.get("content", "").rstrip().lower() == "end conversation"
+    
+    
 
     def setup_rag(self):
-        # Check if we already have the vectorstore cached
         if self._vectorstore is None:
             prompt = PromptTemplate(
                 template="""You are a knowledgeable HIV prevention counselor.
@@ -191,8 +193,15 @@ class HIVPrEPCounselor:
                 input_variables=["context", "question"]
             )
 
+            # Load data first
+            loader = WebBaseLoader("https://raw.githubusercontent.com/amarisg25/embedding-data-chatbot/main/HIV_PrEP_knowledge_embedding.json")
+            data = loader.load()
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+            all_splits = text_splitter.split_documents(data)
+            print(f"Split into {len(all_splits)} documents")
+
             try:
-                # Try to load from disk first
+                # Try to load existing vectorstore
                 self._vectorstore = Chroma(
                     persist_directory="./chroma_db", 
                     embedding_function=OpenAIEmbeddings(
@@ -200,26 +209,21 @@ class HIVPrEPCounselor:
                         openai_api_key=self.api_key
                     )
                 )
-                print("Loaded vectorstore from disk")
-            except Exception:
-                # If not available, create and persist
-                loader = WebBaseLoader("https://github.com/amarisg25/embedding-data-chatbot/blob/main/HIV_PrEP_knowledge_embedding.json")
-                data = loader.load()
-                text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-                all_splits = text_splitter.split_documents(data)
-                
+                print("Loaded existing vectorstore from disk")
+            except Exception as e:
+                print(f"Creating new vectorstore: {e}")
+                # Create new vectorstore
                 self._vectorstore = Chroma.from_documents(
                     documents=all_splits, 
-                    embedding=OpenAIEmbeddings(
+                    embedding_function=OpenAIEmbeddings(
                         model=self.embedding_model,
                         openai_api_key=self.api_key
                     ),
                     persist_directory="./chroma_db"
                 )
-                self._vectorstore.persist()
-                print("Created and persisted new vectorstore")
+                print("Created and stored new vectorstore")
 
-
+            # Set up QA chain
             llm = ChatOpenAI(model_name="ft:gpt-4o-2024-08-06:brown-university::B4YXCCUH", temperature=0)
             retriever = self._vectorstore.as_retriever(
                 search_kwargs={"k": 3} 
@@ -230,21 +234,19 @@ class HIVPrEPCounselor:
             )
 
     def answer_question(self, question: str) -> str:
-        # Check cache first
-        cache_key = question.lower().strip()
-        if cache_key in self.response_cache:
-            print("Cache hit!")
-            return self.response_cache[cache_key]
+        if not self._vectorstore:
+            print("Warning: Vectorstore not initialized!")
+            return "I'm sorry, my knowledge base is not properly initialized."
         
-        # Not in cache, get from QA chain
-        self.result = self._qa_chain.invoke({"query": question})
-        answer = self.result.get("result", "I'm sorry, I couldn't find an answer to that question.")
-        
-        # Cache the result for future use (limit cache size)
-        if len(self.response_cache) < 100:  # Prevent unlimited growth
-            self.response_cache[cache_key] = answer
-            
-        return answer
+        print(f"Searching for answer to: {question}")
+        try:
+            result = self._qa_chain.invoke({"query": question})
+            print(f"Retrieved context: {result}")  # Add this to see what context was retrieved
+            answer = result.get("result", "I'm sorry, I couldn't find an answer to that question.")
+            return answer
+        except Exception as e:
+            print(f"Error retrieving answer: {e}")
+            return "I'm sorry, I encountered an error retrieving the answer."
 
     def initialize_teachability(self):
         """Initialize teachability components"""
@@ -299,11 +301,15 @@ class HIVPrEPCounselor:
         - If uncertain, focus on connecting them with appropriate resources
         - Always provide a clear next step or action item
 
+        8. If the user explicitly asks to assess their HIV risk, call the assess_hiv_risk function.
+
         8. For any other questions:
         - Answer as a counselor using motivational interviewing techniques
         - Focus on what you can do to help
         - Provide clear next steps
         - Only suggest the user to reach out to a healthcare provider who can offer personalized advice and support somtimes when necessary. BUT do not do it too often as it can be annoying.
+
+        9. You are able to talk any language the user asks you to talk in. 
 
         REMEMBER: 
         If the answer is unclear, focus on connecting them with healthcare providers who can help."""
@@ -342,17 +348,17 @@ class HIVPrEPCounselor:
         def answer_question_wrapper(user_question: str) -> str:
             return self.answer_question(user_question)
         
-        async def assess_hiv_risk_wrapper() -> str:
-            return await assess_hiv_risk(self.websocket)
+        async def assess_hiv_risk_wrapper(language: str) -> str:
+            return await assess_hiv_risk(self.websocket, language)
         
-        def search_provider_wrapper(zip_code: str) -> str:
-            return search_provider(zip_code)
+        def search_provider_wrapper(zip_code: str, language: str) -> str:
+            return search_provider(zip_code, language)
 
-        async def assess_status_of_change_wrapper() -> str:
-            return await assess_ttm_stage_single_question(self.websocket)
+        async def assess_status_of_change_wrapper(language: str) -> str:
+            return await assess_ttm_stage_single_question(self.websocket, language)
         
-        async def record_support_request_wrapper() -> str:
-            return await record_support_request(self.websocket, self.chat_id)
+        async def record_support_request_wrapper(language: str) -> str:
+            return await record_support_request(self.websocket, self.chat_id, language)
         
 
         # Register functions
@@ -365,7 +371,8 @@ class HIVPrEPCounselor:
             Wait for the user to show signs of distress over time (DO NOT ACTIVATE THE FIRST TIME) or requests human support.
             For example, if the user suggests that they want 
             First ask if they are sure they want human support. 
-            If they do, then call this function. If they don't, then do not call this function.""",
+            If they do, then call this function. If they don't, then do not call this function.
+            For the language parameter, please detect the language of the user's question and pass it as a parameter.""",
         )
 
         autogen.agentchat.register_function(
@@ -373,7 +380,7 @@ class HIVPrEPCounselor:
             caller=counselor_assistant,
             executor=counselor,
             name="assess_status_of_change",
-            description="Assesses the status of change for the patient.",
+            description="Assesses the status of change for the patient. For the language parameter, please detect the language of the user's question and pass it as a parameter.",
         )
 
         autogen.agentchat.register_function(
@@ -391,7 +398,7 @@ class HIVPrEPCounselor:
             caller=counselor_assistant,
             executor=counselor,
             name="assess_hiv_risk",
-            description="Assesses HIV risk when the user explicitly asks for it.",
+            description="Assesses HIV risk when the user explicitly asks for it. For the language paramter, please detect the language of the user's question and pass it as a parameter.",
         )
 
         autogen.agentchat.register_function(
@@ -399,7 +406,7 @@ class HIVPrEPCounselor:
             caller=counselor_assistant,
             executor=counselor,
             name="search_provider",
-            description="Returns a list of nearby providers. After getting the zip code, immediatelyb return the list of providers. DO NOT say anythiing such as: Please wait while I search for providers. Just return the list of providers.",
+            description="Returns a list of nearby providers. After getting the zip code, immediatelyb return the list of providers. DO NOT say anythiing such as: Please wait while I search for providers. Just return the list of providers. For the language parameter, please detect the language of the user's question and pass it as a parameter.",
         )
 
         speaker_transitions = {

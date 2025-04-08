@@ -30,42 +30,145 @@ from .MI_evaluation import evaluate_motivational_interview
 import asyncio
 
 
-async def assess_hiv_risk(websocket) -> str:
-    """Conducts an HIV risk assessment through a series of questions."""
-    questions = [
-        """I'll help assess your HIV risk factors. This will involve a few questions about your sexual health and activities. Please answer using "yes" or "no". Everything you share is completely confidential, and I'm here to help without judgment. Let's go through this step by step.\n First question: Have you had sex without condoms in the past 3 months?""",
-        "Have you had multiple sexual partners in the past 12 months?",
-        "Have you used intravenous drugs or shared needles?",
-        "Do you have a sexual partner who is HIV positive or whose status you don't know?",
-        "Have you been diagnosed with an STI in the past 12 months?"
-    ]
+from openai import OpenAI
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+# Initialize OpenAI API
+OpenAI.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI()
+
+# List of questions
+QUESTIONS = [
+    "I'll help assess your HIV risk factors. This will involve a few questions about your sexual health and activities. Everything you share is completely confidential, and I'm here to help without judgment. Let's go through this step by step.\nFirst question: Have you had sex without condoms in the past 3 months?",
+    "Have you had multiple sexual partners in the past 12 months?",
+    "Have you used intravenous drugs or shared needles?",
+    "Do you have a sexual partner who is HIV positive or whose status you don't know?",
+    "Have you been diagnosed with an STI in the past 12 months?"
+]
+
+
+
+def classify_response(response, language):
+    """Classifies response as affirmative, negative, uncooperative, or unsure using ChatGPT."""
+    prompt = (f"In {language}, classify this response as 'affirmative', 'negative', 'stop' (if the user wants to stop or exit out of the assessment), 'clarification', or 'unsure': '{response}'. "
+              f"Do not add extra words, just return the classification.")
+    completion = client.chat.completions.create(
+        model="gpt-4-turbo",
+        messages=[{"role": "system", "content": prompt}]
+    )
+    return completion.choices[0].message.content.strip().lower()
+
+def translate_question(question, language_code):
+    """Translates a question into the user's detected language using ChatGPT."""
+    prompt = f"Translate the following sentence to {language_code}: {question}"
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "system", "content": "You are a translation assistant. Only return the translated question, no other text."},
+                  {"role": "user", "content": prompt}]
+    )
+    return completion.choices[0].message.content
+
+async def handle_clarification(websocket, question, user_response, language):
+    """Recursive function to handle clarification requests."""
+    # Generate clarification response
+    clarification_response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": "You are here to clarify the question asked by the user. Please provide a clear answer of the information is being asked for."},
+                      {"role": "user", "content": f"Question: {question}\nUser response: {user_response}\n\nPlease provide a clear answer of the information is being asked for. Also, re-ask the question initially asked at the end."}]
+        )
     
-    await websocket.send_text("I understand you'd like to assess your HIV risk. I'll ask you a few questions - everything you share is confidential, and I'm here to help without judgment.")
+    # Send the clarification response
+    await websocket.send_text(clarification_response.choices[0].message.content)
     
-    answers = []
-    for question in questions:
-        await websocket.send_text(question)
-        response = await websocket.receive_text()
-        answers.append(response.lower().strip())
+    # Get the new response
+    new_response = await websocket.receive_text()
+    classification = classify_response(new_response, language)
     
-    # Count risk factors
-    risk_count = sum(1 for ans in answers if 'yes' in ans)
+    # If the user is still asking for clarification, recursively handle it
+    if classification == "clarification":
+        return await handle_clarification(websocket, question, new_response, language)
     
-    # Generate appropriate response based on risk level
-    if risk_count >= 1:
-        return ("Based on your responses, you might benefit from PrEP (pre-exposure prophylaxis). "
+    # Otherwise, return the classification for further processing
+    return classification, new_response
+
+async def assess_hiv_risk(websocket, language_param):
+    """Main function for administering questionnaire using websocket communication."""
+    try:
+        # # Get initial language sample
+        # await websocket.send_text("Write a sentence in the language you're speaking in:")
+        # user_response = await websocket.receive_text()
+        language = language_param
+        print(f"[{language}]")
+        
+        # Track affirmative responses
+        affirmative_count = 0
+        
+        for question in QUESTIONS:
+            if language != "English":
+                question = translate_question(question, language)
+
+            # Send question through websocket
+            await websocket.send_text(question)
+            
+            # Wait for user response
+            user_response = await websocket.receive_text()
+            classification = classify_response(user_response, language)
+
+            if classification == "negative":
+                await websocket.send_text("[Negative Response]")
+            elif classification == "affirmative":
+                await websocket.send_text("[Affirmative Response]")
+                affirmative_count += 1
+            elif classification == "stop":
+                await websocket.send_text("[Stopping]")
+                return ("I understand you want to stop this assessment. Please let me know if you have any other questions.")
+            elif classification == "clarification":
+                # Use the recursive function to handle clarification
+                classification, user_response = await handle_clarification(websocket, question, user_response, language)
+                
+                # Process the response after clarification
+                if classification == "negative":
+                    await websocket.send_text("[Negative Response]")
+                elif classification == "affirmative":
+                    await websocket.send_text("[Affirmative Response]")
+                    affirmative_count += 1
+                elif classification == "stop":
+                    await websocket.send_text("[Stopping]")
+                    return ("I understand you want to stop this assessment. Please let me know if you have any other questions.")
+                else:
+                    await websocket.send_text("[Unclear Response]")
+            else:
+                await websocket.send_text("[Unclear Response]")
+        
+        # Provide recommendations based on affirmative responses
+        if affirmative_count > 0:
+            recommendation = (
+                "Based on your responses, you might benefit from PrEP (pre-exposure prophylaxis). "
                 "This is just an initial assessment, and I recommend discussing this further with a healthcare provider. "
-                "Would you like information about PrEP or help finding a provider in your area?")
-    else:
-        return ("Based on your responses, you're currently at lower risk for HIV. "
+                "Would you like information about PrEP or help finding a provider in your area?"
+            )
+        else:
+            recommendation = (
+                "Based on your responses, you're currently at lower risk for HIV. "
                 "It's great that you're being proactive about your health! "
                 "Continue your safer practices, and remember to get tested regularly. "
-                "Would you like to know more about HIV prevention or testing options?")
+                "Would you like to know more about HIV prevention or testing options?"
+            )
+        
+        # Translate and return the recommendation
+        return translate_question(recommendation, language)
+
+    except Exception as e:
+        print(f"Error in assess_hiv_risk: {e}")
+        await websocket.send_text("Sorry, there was an error processing your responses.")
 
 
 
 # FUNCTION TO SEARCH FOR NEAREST PROVIDER
-def search_provider(zip_code: str) -> Dict:
+def search_provider(zip_code: str, language: str) -> Dict:
     """
     Searches for PrEP providers within 30 miles of the given ZIP code.
     """
@@ -163,7 +266,7 @@ def search_provider(zip_code: str) -> Dict:
             
             formatted_results += "Would you like any additional information about these providers?"
             
-            return formatted_results
+            return translate_question(formatted_results, language)
 
         except Exception as e:
             print(f"Error during search: {str(e)}")
@@ -297,16 +400,17 @@ supabase = create_client(
     os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
 )
 
-async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
+async def record_support_request(websocket: WebSocket, chat_id: str, language: str) -> str:
     """
     Record in Supabase when a user requests support.
     """
     try:
         # Step 1: Ask for support type
-        await websocket.send_text(
+        await websocket.send_text(translate_question(
             "To help connect you with the right support:\n"
-            "What type of support would be most helpful? (emotional, financial, medical support, etc.)"
-        )
+            "What type of support would be most helpful? (emotional, financial, medical support, etc.)",
+            language
+        ))
         print("Sent support type question.")
 
     
@@ -316,7 +420,7 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
             response_json = json.loads(response)
             support_type = response_json.get("content", "")
         except json.JSONDecodeError:
-            await websocket.send_text("I didn't understand that. Could you please rephrase your response?")
+            await websocket.send_text(translate_question("I didn't understand that. Could you please rephrase your response?", language))
             return "Invalid response format."
 
         # Step 2: Ask for contact preference and validate response
@@ -327,9 +431,9 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
                 formatted_contact_preference += "2: By email. \n\n"
                 formatted_contact_preference += "0: I do not want to be contacted.\n\n"
                 formatted_contact_preference += "Please reply with 0, 1, or 2."
-                await websocket.send_text(formatted_contact_preference)
+                await websocket.send_text(translate_question(formatted_contact_preference, language))
             else:
-                await websocket.send_text("Please make sure to answer with 0, 1, or 2.")
+                await websocket.send_text(translate_question("Please make sure to answer with 0, 1, or 2.", language))
 
             try:
                 response = await websocket.receive_text()
@@ -340,9 +444,9 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
                 if contact_preference in ["0", "1", "2"]:
                     break
                 else:
-                    await websocket.send_text("Please make sure to answer with 0, 1, or 2.")
+                    await websocket.send_text(translate_question("Please make sure to answer with 0, 1, or 2.", language))
             except json.JSONDecodeError:
-                await websocket.send_text("I didn't understand that. Please respond with 0, 1, or 2.")
+                await websocket.send_text(translate_question("I didn't understand that. Please respond with 0, 1, or 2.", language)         )
 
         # If they don't want contact
         if contact_preference == "0":
@@ -353,7 +457,7 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
             contact_info_prompt = "Please provide your phone number so that a research assistant can reach out to you."
         else:  # contact_preference == "2"
             contact_info_prompt = "Please provide your email address so that a research assistant can reach out to you."
-        await websocket.send_text(contact_info_prompt)
+        await websocket.send_text(translate_question(contact_info_prompt, language))
 
         try:
             response = await websocket.receive_text()
@@ -361,7 +465,7 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
             response_json = json.loads(response)
             contact_info = response_json.get("content", "").strip()
         except json.JSONDecodeError:
-            await websocket.send_text("I didn't understand that. Could you please try again?")
+            await websocket.send_text(translate_question("I didn't understand that. Could you please try again?", language))
             return "Invalid response format."
 
         # Record in Supabase
@@ -384,12 +488,12 @@ async def record_support_request(websocket: WebSocket, chat_id: str) -> str:
         else:
             contact_method = "Please answer with 0, 1, or 2."
 
-        return f"Thank you for sharing that. When your chat session ends, a research assistant will reach out to provide {support_type} support via {contact_method}. What else can I help you with?"
+        return translate_question(f"Thank you for sharing that. When your chat session ends, a research assistant will reach out to provide {support_type} support via {contact_method}. What else can I help you with?", language)
 
 
     except Exception as e:
         print(f"Error recording support request: {e}")
-        return "I'm having trouble recording your request. Please let me know if you'd like to try again."
+        return translate_question("I'm having trouble recording your request. Please let me know if you'd like to try again.", language)
 
 
 async def handle_inactivity(user_id, last_activity_time):

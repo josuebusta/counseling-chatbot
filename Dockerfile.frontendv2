@@ -7,18 +7,16 @@ RUN apt-get update && \
 
 WORKDIR /chatbot-ui-shadcn
 
-# Create directory and set permissions before copying files
-RUN mkdir -p /chatbot-ui-shadcn && \
-    chown -R node:node /chatbot-ui-shadcn
-
 # Switch to node user before any npm operations
 USER node
 
-# Copy package files with correct ownership
+# Copy package files FIRST with correct ownership
 COPY --chown=node:node ./chatbot-ui-shadcn/package*.json ./
 
 # Install dependencies as node user
-RUN npm install --legacy-peer-deps --production=false && \
+RUN npm cache clean --force && \
+    npm install --legacy-peer-deps --production=false && \
+    npm install -g browserslist && \
     npx update-browserslist-db@latest
 
 # Copy the rest of the application with correct ownership
@@ -32,6 +30,7 @@ ENV DOCKER_BUILD=true
 
 # Build the application
 RUN npm run build
+
 
 # Production stage
 FROM node:18-slim AS runner
