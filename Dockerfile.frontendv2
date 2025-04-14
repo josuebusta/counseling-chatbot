@@ -5,10 +5,22 @@ RUN apt-get update && \
     apt-get install -y build-essential python3 libvips-dev && \
     rm -rf /var/lib/apt/lists/*
 
+# Create directory with proper permissions first
+RUN mkdir -p /chatbot-ui-shadcn && \
+    chown -R node:node /chatbot-ui-shadcn
+
 WORKDIR /chatbot-ui-shadcn
+
+# Configure npm for non-root global installations
+RUN mkdir -p /home/node/.npm-global && \
+    chown -R node:node /home/node/.npm-global
 
 # Switch to node user before any npm operations
 USER node
+
+# Configure npm to use the custom directory
+ENV PATH=/home/node/.npm-global/bin:$PATH
+ENV NPM_CONFIG_PREFIX=/home/node/.npm-global
 
 # Copy package files FIRST with correct ownership
 COPY --chown=node:node ./chatbot-ui-shadcn/package*.json ./

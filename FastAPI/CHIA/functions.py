@@ -124,7 +124,7 @@ async def assess_hiv_risk(websocket, language_param):
                 affirmative_count += 1
             elif classification == "stop":
                 await websocket.send_text("[Stopping]")
-                return ("I understand you want to stop this assessment. Please let me know if you have any other questions.")
+                return (translate_question("I understand you want to stop this assessment. Please let me know if you have any other questions.", language))
             elif classification == "clarification":
                 # Use the recursive function to handle clarification
                 classification, user_response = await handle_clarification(websocket, question, user_response, language)
@@ -275,14 +275,14 @@ def search_provider(zip_code: str, language: str) -> Dict:
             
     except Exception as e:
         print(f"Error in search_provider: {str(e)}")
-        return f"I'm sorry, I couldn't find any providers near you. Technical Error: {str(e)}"
+        return translate_question(f"I'm sorry, I couldn't find any providers near you. Technical Error: {str(e)}", language)
     
     finally:
         if 'driver' in locals():
             print("Closing Chrome driver...")
             driver.quit()
 
-async def assess_ttm_stage_single_question(websocket: WebSocket) -> str:
+async def assess_ttm_stage_single_question(websocket: WebSocket, language: str) -> str:
     question = """Of course, I will ask you a single question to assess your status of change. 
 Are you currently engaging in Prep uptake on a regular basis? Please respond with the number corresponding to your answer: 
 1. No, and I do not intend to start in the next 6 months.
@@ -291,7 +291,7 @@ Are you currently engaging in Prep uptake on a regular basis? Please respond wit
 4. Yes, I have been for less than 6 months.
 5. Yes, I have been for more than 6 months."""
 
-    await websocket.send_text(question)
+    await websocket.send_text(translate_question(question, language))
     
     try:
         # Get response
@@ -318,13 +318,13 @@ Are you currently engaging in Prep uptake on a regular basis? Please respond wit
         stage = stage_map.get(response_number, "Unclassified")
         
         if stage != "Unclassified":
-            return f"Based on your response, you are in the '{stage}' stage of change regarding PrEP uptake. Let me explain what this means and discuss possible next steps."
+            return translate_question(f"Based on your response, you are in the '{stage}' stage of change regarding PrEP uptake. Let me explain what this means and discuss possible next steps.", language)
         else:
-            return "I didn't catch your response. Please respond with a number from 1 to 5 corresponding to your situation."
+            return translate_question("I didn't catch your response. Please respond with a number from 1 to 5 corresponding to your situation.", language)
             
     except Exception as e:
         print(f"Error processing response: {e}")
-        return "I'm having trouble processing your response. Please try again with a number from 1 to 5."
+        return translate_question("I'm having trouble processing your response. Please try again with a number from 1 to 5.", language)
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
