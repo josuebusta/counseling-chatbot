@@ -27,6 +27,7 @@ import os
 from datetime import datetime, timezone
 from .accuracy_evaluation import evaluate_counseling_response
 from .MI_evaluation import evaluate_motivational_interview
+from .shared_functions import search_provider
 import asyncio
 
 
