@@ -27,7 +27,6 @@ import os
 from datetime import datetime, timezone
 from .accuracy_evaluation import evaluate_counseling_response
 from .MI_evaluation import evaluate_motivational_interview
-from .shared_functions import search_provider
 import asyncio
 
 
@@ -650,7 +649,6 @@ async def check_inactive_chats():
 
 async def create_transcript():
     try:
-        # Get all chats that don't have transcripts
         non_transcribed_chats = supabase.table("messages") \
             .select("chat_id") \
             .is_("has_transcript", False) \
@@ -760,10 +758,6 @@ async def create_transcript():
         return "Error creating transcripts"
 
     return "Transcripts created successfully"
-
-
-if __name__ == "__main__":
-    asyncio.run(create_transcript())
 
 
                 

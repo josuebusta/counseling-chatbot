@@ -38,6 +38,7 @@ from supabase import create_client
 import openai
 from openai import OpenAI
 from langchain.schema import Document
+from termcolor import colored
 
 
 # CONFIGURATION 
@@ -257,7 +258,7 @@ class HIVPrEPCounselor:
             )
             os.makedirs(user_db_path, exist_ok=True)
             
-            self.teachability = Teachability(
+            self.teachability = CHIATeachability(
                 reset_db=False,
                 path_to_db_dir=user_db_path,
                 recall_threshold=2.5,
@@ -442,10 +443,15 @@ class HIVPrEPCounselor:
         )
         
 
-        # Move teachability addition here and use the class instance
-        if self.teachability_flag and self.teachability:
+
+        if self.teachability_flag:
+            self.teachability = CHIATeachability(
+                verbosity=1,
+                path_to_db_dir="./tmp/chia_counselor_db",
+                recall_threshold=1.5,
+                max_num_retrievals=5
+            )
             self.teachability.add_to_agent(counselor)
-            self.teachability.add_to_agent(counselor_assistant)
 
     def update_history(self, recipient, message, sender):
         self.agent_history.append({
@@ -567,3 +573,108 @@ class HIVPrEPCounselor:
 #     user_id = "3be0e3d8-f360-464c-ae52-8da66a5c5964"
 #     print(f"Attempting to read database content for user: {user_id}")
 #     export_readable_db(user_id)
+
+class CHIATeachability(Teachability):
+    """
+    Specialized Teachability class for CHIA counselor to remember past conversations 
+    and HIV assessments
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Customize the memo categories for CHIA
+        self.memo_categories = {
+            "personal_info": "User's personal information and background",
+            "hiv_risk": "HIV risk factors and assessment details",
+            "conversation_history": "Important points from past conversations",
+            "preferences": "User's stated preferences and concerns"
+        }
+
+    def _consider_memo_storage(self, comment: Union[Dict, str]):
+        """Enhanced memo storage specifically for HIV counseling context"""
+        memo_added = False
+
+        # Check for personal information or HIV risk factors
+        response = self._analyze(
+            comment,
+            "Does this message contain any of the following? Answer yes or no:\n"
+            "1. Personal information about the user\n"
+            "2. HIV risk factors or assessment details\n"
+            "3. Important preferences or concerns\n"
+            "4. Key points that should be remembered for future conversations"
+        )
+
+        if "yes" in response.lower():
+            # Extract the category and information
+            category = self._analyze(
+                comment,
+                "Which category does this information belong to?\n"
+                "- personal_info\n"
+                "- hiv_risk\n"
+                "- conversation_history\n"
+                "- preferences\n"
+                "Answer with just the category name."
+            )
+
+            # Extract the key information
+            info = self._analyze(
+                comment,
+                "Extract the key information that should be remembered for future reference. "
+                "Format it as a clear, concise statement."
+            )
+
+            # Generate a retrieval question
+            question = self._analyze(
+                comment,
+                "What question would need to be asked to retrieve this information in a future conversation? "
+                "Make it specific but generalizable."
+            )
+
+            # Add to memory store
+            if self.verbosity >= 1:
+                print(colored(f"\nSTORING {category.upper()} INFORMATION", "light_yellow"))
+            self.memo_store.add_input_output_pair(question, f"[{category}] {info}")
+            memo_added = True
+
+        if memo_added:
+            self.memo_store._save_memos()
+
+    def _consider_memo_retrieval(self, comment: Union[Dict, str]):
+        """Enhanced memo retrieval for HIV counseling context"""
+        if self.verbosity >= 1:
+            print(colored("\nSEARCHING FOR RELEVANT PAST INFORMATION", "light_yellow"))
+
+        # First, try to retrieve directly relevant memos
+        memo_list = self._retrieve_relevant_memos(comment)
+
+        # Then, check if we need specific types of information
+        context_check = self._analyze(
+            comment,
+            "Does this message require any of these types of information? Answer yes or no:\n"
+            "1. User's previous HIV risk assessment\n"
+            "2. Personal background information\n"
+            "3. Previously discussed concerns or preferences\n"
+            "4. Past conversation context"
+        )
+
+        if "yes" in context_check.lower():
+            # Generate specific queries for each relevant category
+            categories = self._analyze(
+                comment,
+                "Which categories of information are most relevant? List them separated by commas:\n"
+                "- personal_info\n"
+                "- hiv_risk\n"
+                "- conversation_history\n"
+                "- preferences"
+            )
+            
+            for category in categories.split(","):
+                category = category.strip()
+                if category in self.memo_categories:
+                    query = f"Retrieve important {self.memo_categories[category]}"
+                    category_memos = self._retrieve_relevant_memos(query)
+                    memo_list.extend(category_memos)
+
+        # De-duplicate and append memos
+        memo_list = list(set(memo_list))
+        return comment + self._concatenate_memo_texts(memo_list)
