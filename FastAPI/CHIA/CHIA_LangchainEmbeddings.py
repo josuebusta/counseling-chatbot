@@ -38,7 +38,6 @@ from supabase import create_client
 import openai
 from openai import OpenAI
 from langchain.schema import Document
-from termcolor import colored
 
 
 # CONFIGURATION 
@@ -51,82 +50,10 @@ class TrackableGroupChatManager(autogen.GroupChatManager):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._last_message = None
-        self._message_history = set()
-
-    # def _process_received_message(self, message, sender, silent):
-    #     if self.websocket:
-    #         # formatted_message = self._format_message(message, sender)
-    #         # if formatted_message and formatted_message not in self._message_history:  
-    #         asyncio.create_task(self.send_message(message))
-    #         self._message_history.add(message)
-    #     return super()._process_received_message(message, sender, silent)
-
-    def _format_message(self, message, sender) -> str:
-        """Format the message for display, handling various message types"""
-        try:
-       
-            if isinstance(message, dict):
-                if 'function_call' in message or 'tool_calls' in message:
-                    return None
-                
-                if 'content' in message and message['content']:
-                    return self._clean_message(message['content'])
-                
-                if 'role' in message and message['role'] == 'tool':
-                    if 'content' in message:
-                        return self._clean_message(message['content'])
-                    
-            elif isinstance(message, str) and message.strip():
-                return self._clean_message(message)
-                
-            return None
-        except Exception as e:
-            print(f"Error formatting message: {e}")
-            return None
-
-    def _clean_message(self, message: str) -> str:
-        """Clean and format message content"""
-        # Remove any existing prefixes
-        prefixes = ["counselor:", "CHIA:", "assessment_bot:"]
-        message = message.strip()
-
-        for prefix in prefixes:
-            if message.lower().startswith(prefix.lower()):
-                message = message[len(prefix):].strip()
-        return message
-
-    async def send_message(self, message: str):
-        """Send message to websocket, avoiding duplicates"""
-        if message and message != self._last_message:
-            try:
-                await self.websocket.send_text(message)
-                self._last_message = message
-            except Exception as e:
-                print(f"Error sending message: {e}")
-
+    
     def _process_received_message(self, message, sender, silent):
-        """Process and deduplicate messages"""
-        if self.websocket:
-            formatted_message = self._format_message(message, sender)
-            if formatted_message:
-                # message_hash = self._calculate_message_hash(formatted_message, sender.name)
-                
-                # if not self._is_duplicate(message_hash):
-                #     self._message_timestamps[message_hash] = time.time()
-                #     self._message_history.add(message_hash)
-                asyncio.create_task(self.send_message(formatted_message))
-
+        """Process received message without sending back directly"""
         return super()._process_received_message(message, sender, silent)
-
-    async def send_message(self, message: str):
-        """Send message to websocket with deduplication"""
-        try:
-            print("sending message")
-            if message and message != self._last_message:
-                await self.websocket.send_text(message)
-                self._last_message = message
-        except Exception as e:
-            print(f"Error sending message: {e}")
 
 
 class HIVPrEPCounselor:
@@ -139,22 +66,20 @@ class HIVPrEPCounselor:
         print("chat_id", self.chat_id)
         self.api_key = os.getenv('OPENAI_API_KEY')
         self.websocket = websocket
-        self._vectorstore = None  # For caching
-        self._qa_chain = None  # For caching
-        self.response_cache = {}  # Cache for common responses
-        self.teachability = None  # Add this line
+        self._vectorstore = None  
+        self._qa_chain = None 
+        self.response_cache = {}  
+        self.teachability = None 
 
         if not self.api_key:
             raise ValueError("API key not found. Please set OPENAI_API_KEY in your .env file.")
 
-        # Use less expensive models for non-critical tasks
         self.config_list = {
             "model": "ft:gpt-4o-2024-08-06:brown-university::B4YXCCUH",
             "api_key": self.api_key,
             "price": [1.25, 1.25]
         }
 
-        # Use a more efficient embedding model
         self.embedding_model = "text-embedding-3-small"
         
         self.agent_history = []
@@ -202,7 +127,6 @@ class HIVPrEPCounselor:
             print(f"Split into {len(all_splits)} documents")
 
             try:
-                # Try to load existing vectorstore
                 self._vectorstore = Chroma(
                     persist_directory="./chroma_db", 
                     embedding_function=OpenAIEmbeddings(
@@ -213,7 +137,6 @@ class HIVPrEPCounselor:
                 print("Loaded existing vectorstore from disk")
             except Exception as e:
                 print(f"Creating new vectorstore: {e}")
-                # Create new vectorstore
                 self._vectorstore = Chroma.from_documents(
                     documents=all_splits, 
                     embedding_function=OpenAIEmbeddings(
@@ -224,16 +147,18 @@ class HIVPrEPCounselor:
                 )
                 print("Created and stored new vectorstore")
 
-            # Set up QA chain
+            # QA Chain
             llm = ChatOpenAI(model_name="ft:gpt-4o-2024-08-06:brown-university::B4YXCCUH", temperature=0)
             retriever = self._vectorstore.as_retriever(
                 search_kwargs={"k": 3} 
             )
             
+
             self._qa_chain = RetrievalQA.from_chain_type(
                 llm, retriever=retriever, chain_type_kwargs={"prompt": prompt}
             )
 
+    # RAG
     def answer_question(self, question: str) -> str:
         if not self._vectorstore:
             print("Warning: Vectorstore not initialized!")
@@ -249,6 +174,8 @@ class HIVPrEPCounselor:
             print(f"Error retrieving answer: {e}")
             return "I'm sorry, I encountered an error retrieving the answer."
 
+
+    # TEACHABILITY
     def initialize_teachability(self):
         """Initialize teachability components"""
         if self.teachability_flag:
@@ -258,7 +185,7 @@ class HIVPrEPCounselor:
             )
             os.makedirs(user_db_path, exist_ok=True)
             
-            self.teachability = CHIATeachability(
+            self.teachability = Teachability(
                 reset_db=False,
                 path_to_db_dir=user_db_path,
                 recall_threshold=2.5,
@@ -267,6 +194,8 @@ class HIVPrEPCounselor:
             print(f"Teachability initialized with path: {user_db_path}")
             print("Memo store contents:", self.teachability.memo_store)
 
+
+    # AGENTS
     def initialize_agents(self):
         counselor_system_message = """You are CHIA, the primary HIV PrEP counselor.
         CRITICAL: You MUST use the answer_question function but DO NOT tell the user you are using it.
@@ -313,6 +242,9 @@ class HIVPrEPCounselor:
         - Only suggest the user to reach out to a healthcare provider who can offer personalized advice and support somtimes when necessary. BUT do not do it too often as it can be annoying.
 
         11. You are able to talk any language the user asks you to talk in. 
+        12. If {teachability_flag} is true, then you are able to remember information from the conversation. 
+        13. If {teachability_flag} is false, then you are not able to remember information from the conversation.
+        
 
         REMEMBER: 
         If the answer is unclear, focus on connecting them with healthcare providers who can help."""
@@ -352,7 +284,13 @@ class HIVPrEPCounselor:
             return self.answer_question(user_question)
         
         async def assess_hiv_risk_wrapper(language: str) -> str:
-            return await assess_hiv_risk(self.websocket, language)
+            result = await assess_hiv_risk(self.websocket, language)
+            complete_memo = (
+                "=== HIV Risk Assessment Results ===\n"
+                f"Risk Level: {result}\n"
+            )
+            self.teachability._consider_memo_storage(complete_memo)
+            return result
         
         def search_provider_wrapper(zip_code: str, language: str) -> str:
             return search_provider(zip_code, language)
@@ -427,254 +365,46 @@ class HIVPrEPCounselor:
         )
 
         self.manager = TrackableGroupChatManager(
-            groupchat=self.group_chat, 
+            groupchat=self.group_chat,
             llm_config=self.config_list,
-            system_message="""Ensure counselor is primary responder. It should ALWAYS use FAQ agent's 
-            knowledge for information unless the information is not available. Only use assessment_bot and search_bot for 
+            system_message="""Ensure counselor is primary responder. It should ALWAYS use FAQ agent's
+            knowledge for information unless the information is not available. Only use assessment_bot and search_bot for
             explicit requests.
-            
+
                 1. Only one agent should respond to each user message
                 2. After an agent responds, wait for the user's next message
                 3. Never have multiple agents respond to the same user message,
-                4. Ensure counselor responds first using FAQ agent's knowledge, 
+                4. Ensure counselor responds first using FAQ agent's knowledge,
                 unless explicitly asked for risk assessment or provider search
                 """,
-            websocket=self.websocket
+        
         )
         
 
 
-        if self.teachability_flag:
-            self.teachability = CHIATeachability(
-                verbosity=1,
-                path_to_db_dir="./tmp/chia_counselor_db",
-                recall_threshold=1.5,
-                max_num_retrievals=5
-            )
+        if self.teachability_flag and self.teachability:
             self.teachability.add_to_agent(counselor)
+            self.teachability.add_to_agent(counselor_assistant)
 
-    def update_history(self, recipient, message, sender):
-        self.agent_history.append({
-            "sender": sender.name,
-            "receiver": recipient.name,
-            "message": message
-        })
-    
-    def get_latest_response(self):
-        """Get the latest valid response"""
-        try:
-            if not self.group_chat.messages:
-                return None
-                
-            for message in reversed(self.group_chat.messages):
-                if isinstance(message, dict) and message.get('content'):
-                    return message['content']
-                elif isinstance(message, str):
-                    return message
-                    
-            return None
-        except Exception as e:
-            print(f"Error getting response: {e}")
-            return None
 
-    async def initiate_chat(self, user_input: str = None):
-        if not user_input:
+
+    async def initiate_chat(self, user_input_content: str = None):
+        if not user_input_content:
             return
-            
+
         try:
-            self.update_history(self.agents[2], user_input, self.agents[2])
-            print("user_input", user_input)
+            print(f"Initiating chat with content: '{user_input_content}'")
+            # agents[1] is the patient agent
             await self.agents[1].a_initiate_chat(
                 recipient=self.manager,
-                message=str(user_input),
-                websocket=self.websocket,
+                message=user_input_content,
                 clear_history=False,
-                system_message="""Ensure counselor responds first using FAQ agent's knowledge, 
-                unless explicitly asked for risk assessment or provider search.  Ensure only one agent responds per turn. """
             )
+            print("a_initiate_chat completed.") # Add log
         except Exception as e:
-            print(f"Chat error: {e}")
-            raise
-
-    def get_history(self):
-        return self.agent_history
+            print(f"Chat initiation error: {e}")
+            import traceback
+            traceback.print_exc() 
 
 
-    class Config:
-        arbitrary_types_allowed = True
 
-    def export_readable_db(user_id: str):
-        db_dir = f"/Users/amaris/Desktop/AI_coder/counselling-chatbot/FastAPI/tmp/interactive/teachability_db/user_{user_id}"
-        source_path = os.path.join(db_dir, "chroma.sqlite3")
-        
-        try:
-            conn = sqlite3.connect(source_path)
-            cursor = conn.cursor()
-            
-            print("\n=== Stored Memos ===")
-            # Look in embedding_fulltext_search_content for actual content
-            cursor.execute("""
-                SELECT e.id, e.embedding_id, c.c0
-                FROM embeddings e
-                JOIN embedding_fulltext_search_content c ON e.embedding_id = c.id
-                ORDER BY e.id DESC
-                LIMIT 20
-            """)
-            
-            rows = cursor.fetchall()
-            for row in rows:
-                print("\n--- Memo ---")
-                print(f"ID: {row[0]}")
-                print(f"Embedding ID: {row[1]}")
-                print(f"Content: {row[2]}")
-                print("-" * 50)
-                
-        except Exception as e:
-            print(f"Error reading database: {e}")
-            
-        finally:
-            if 'conn' in locals():
-                conn.close()
-    
-        
-    async def send_teachability_state(self):
-        """Send current teachability state to frontend"""
-        try:
-            await self.websocket.send_json({
-                "type": "teachability_flag",
-                "content": self.teachability_flag
-            })
-        except Exception as e:
-            print(f"Error sending teachability state: {e}")
-
-    
-
-    async def handle_websocket_message(self, message):
-        """Handle incoming websocket messages"""
-        try:
-            data = json.loads(message)
-            if data.get("type") == "teachability_flag":
-                new_state = data.get("content")
-                print(f"[UPDATE] Received teachability flag update: {new_state}")
-                self.teachability_flag = new_state
-                # Reinitialize agents with new teachability state
-                self.initialize_agents()
-                print(f"[CONFIRM] Teachability flag is now: {self.teachability_flag}")
-                
-                # Send confirmation back to frontend
-                await self.websocket.send_json({
-                    "type": "teachability_flag",
-                    "content": self.teachability_flag
-                })
-        except Exception as e:
-            print(f"Error handling websocket message: {e}")
-
-# if __name__ == "__main__":
-#     user_id = "3be0e3d8-f360-464c-ae52-8da66a5c5964"
-#     print(f"Attempting to read database content for user: {user_id}")
-#     export_readable_db(user_id)
-
-class CHIATeachability(Teachability):
-    """
-    Specialized Teachability class for CHIA counselor to remember past conversations 
-    and HIV assessments
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        
-        # Customize the memo categories for CHIA
-        self.memo_categories = {
-            "personal_info": "User's personal information and background",
-            "hiv_risk": "HIV risk factors and assessment details",
-            "conversation_history": "Important points from past conversations",
-            "preferences": "User's stated preferences and concerns"
-        }
-
-    def _consider_memo_storage(self, comment: Union[Dict, str]):
-        """Enhanced memo storage specifically for HIV counseling context"""
-        memo_added = False
-
-        # Check for personal information or HIV risk factors
-        response = self._analyze(
-            comment,
-            "Does this message contain any of the following? Answer yes or no:\n"
-            "1. Personal information about the user\n"
-            "2. HIV risk factors or assessment details\n"
-            "3. Important preferences or concerns\n"
-            "4. Key points that should be remembered for future conversations"
-        )
-
-        if "yes" in response.lower():
-            # Extract the category and information
-            category = self._analyze(
-                comment,
-                "Which category does this information belong to?\n"
-                "- personal_info\n"
-                "- hiv_risk\n"
-                "- conversation_history\n"
-                "- preferences\n"
-                "Answer with just the category name."
-            )
-
-            # Extract the key information
-            info = self._analyze(
-                comment,
-                "Extract the key information that should be remembered for future reference. "
-                "Format it as a clear, concise statement."
-            )
-
-            # Generate a retrieval question
-            question = self._analyze(
-                comment,
-                "What question would need to be asked to retrieve this information in a future conversation? "
-                "Make it specific but generalizable."
-            )
-
-            # Add to memory store
-            if self.verbosity >= 1:
-                print(colored(f"\nSTORING {category.upper()} INFORMATION", "light_yellow"))
-            self.memo_store.add_input_output_pair(question, f"[{category}] {info}")
-            memo_added = True
-
-        if memo_added:
-            self.memo_store._save_memos()
-
-    def _consider_memo_retrieval(self, comment: Union[Dict, str]):
-        """Enhanced memo retrieval for HIV counseling context"""
-        if self.verbosity >= 1:
-            print(colored("\nSEARCHING FOR RELEVANT PAST INFORMATION", "light_yellow"))
-
-        # First, try to retrieve directly relevant memos
-        memo_list = self._retrieve_relevant_memos(comment)
-
-        # Then, check if we need specific types of information
-        context_check = self._analyze(
-            comment,
-            "Does this message require any of these types of information? Answer yes or no:\n"
-            "1. User's previous HIV risk assessment\n"
-            "2. Personal background information\n"
-            "3. Previously discussed concerns or preferences\n"
-            "4. Past conversation context"
-        )
-
-        if "yes" in context_check.lower():
-            # Generate specific queries for each relevant category
-            categories = self._analyze(
-                comment,
-                "Which categories of information are most relevant? List them separated by commas:\n"
-                "- personal_info\n"
-                "- hiv_risk\n"
-                "- conversation_history\n"
-                "- preferences"
-            )
-            
-            for category in categories.split(","):
-                category = category.strip()
-                if category in self.memo_categories:
-                    query = f"Retrieve important {self.memo_categories[category]}"
-                    category_memos = self._retrieve_relevant_memos(query)
-                    memo_list.extend(category_memos)
-
-        # De-duplicate and append memos
-        memo_list = list(set(memo_list))
-        return comment + self._concatenate_memo_texts(memo_list)

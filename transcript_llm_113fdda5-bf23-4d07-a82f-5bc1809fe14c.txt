@@ -1,0 +1,18 @@
+Setup (teachability_flag): False
+Setup (user_id): simulated_llm_user_38d0b6b6-1621-4254-ba4b-4b0bb7502093
+Setup (chat_id): 113fdda5-bf23-4d07-a82f-5bc1809fe14c
+User: Hello, I have some questions about HIV and PrEP.
+CHIA (raw): {'type': 'message', 'content': 'Hello, I have some questions about HIV and PrEP.', 'messageId': 'sim_msg_0'}
+User (LLM): Hi there! I'm CHIA, your HIV/PrEP counseling chatbot. I'm here to help answer your questions. What would you like to know about HIV and PrEP?
+CHIA: I'm here to help. Could you please rephrase that?
+User (LLM): {'type': 'message', 'content': 'I'm here to help. Could you please rephrase that?', 'messageId': 'sim_msg_2'}
+CHIA (raw): {'type': 'message', 'content': "Hi there! I'm CHIA, your HIV/PrEP counseling chatbot. I'm here to help answer your questions. What would you like to know about HIV and PrEP?", 'messageId': 'sim_msg_1'}
+User (LLM): What do you want to know about HIV and PrEP?
+CHIA: I'm here to help. Could you please rephrase that?
+User (LLM): Hello! How can I assist you today with your questions about HIV and PrEP?
+CHIA (raw): {'type': 'message', 'content': "{'type': 'message', 'content': 'I'm here to help. Could you please rephrase that?', 'messageId': 'sim_msg_2'}", 'messageId': 'sim_msg_2'}
+User (LLM): Great! What questions do you have about HIV and PrEP?
+CHIA: I'm here to help. Could you please rephrase that?
+User (LLM): Hello! How can I assist you today with your questions about HIV and PrEP?
+CHIA (raw): {'type': 'message', 'content': 'What do you want to know about HIV and PrEP?', 'messageId': 'sim_msg_3'}
+User (LLM): Hello! How can I assist you today with your questions about HIV and PrEP?

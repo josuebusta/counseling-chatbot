@@ -1,0 +1,5 @@
+Setup (teachability_flag): False
+Setup (user_id): simulated_llm_user_a19e75fd-cb20-4d91-a473-7a81d0df2a86
+Setup (chat_id): f7cba027-3a03-49d9-9d89-c25c1420bade
+User: Hello, I have some questions about HIV and PrEP.
+CHIA: [No Response - Timeout]

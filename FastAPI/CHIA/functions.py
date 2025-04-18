@@ -97,25 +97,23 @@ async def handle_clarification(websocket, question, user_response, language):
 async def assess_hiv_risk(websocket, language_param):
     """Main function for administering questionnaire using websocket communication."""
     try:
-        # # Get initial language sample
-        # await websocket.send_text("Write a sentence in the language you're speaking in:")
-        # user_response = await websocket.receive_text()
         language = language_param
         print(f"[{language}]")
         
-        # Track affirmative responses
+        # Track responses and questions for memo
+        assessment_log = []
         affirmative_count = 0
         
         for question in QUESTIONS:
             if language != "English":
                 question = translate_question(question, language)
 
-            # Send question through websocket
             await websocket.send_text(question)
-            
-            # Wait for user response
             user_response = await websocket.receive_text()
             classification = classify_response(user_response, language)
+            
+            # Log each Q&A
+            assessment_log.append(f"Q: {question}\nA: {user_response}")
 
             if classification == "negative":
                 await websocket.send_text("[Negative Response]")
@@ -123,8 +121,11 @@ async def assess_hiv_risk(websocket, language_param):
                 await websocket.send_text("[Affirmative Response]")
                 affirmative_count += 1
             elif classification == "stop":
+
+               
+                
                 await websocket.send_text("[Stopping]")
-                return (translate_question("I understand you want to stop this assessment. Please let me know if you have any other questions.", language))
+                return translate_question("I understand you want to stop this assessment. Please let me know if you have any other questions.", language)
             elif classification == "clarification":
                 # Use the recursive function to handle clarification
                 classification, user_response = await handle_clarification(websocket, question, user_response, language)
@@ -143,26 +144,39 @@ async def assess_hiv_risk(websocket, language_param):
             else:
                 await websocket.send_text("[Unclear Response]")
         
-        # Provide recommendations based on affirmative responses
+        # Create recommendation
         if affirmative_count > 0:
+            risk_level = "elevated"
             recommendation = (
                 "Based on your responses, you might benefit from PrEP (pre-exposure prophylaxis). "
                 "This is just an initial assessment, and I recommend discussing this further with a healthcare provider. "
                 "Would you like information about PrEP or help finding a provider in your area?"
             )
         else:
+            risk_level = "lower"
             recommendation = (
                 "Based on your responses, you're currently at lower risk for HIV. "
                 "It's great that you're being proactive about your health! "
                 "Continue your safer practices, and remember to get tested regularly. "
                 "Would you like to know more about HIV prevention or testing options?"
             )
+
+        # Store complete assessment in teachability
         
-        # Translate and return the recommendation
+        
         return translate_question(recommendation, language)
 
     except Exception as e:
-        print(f"Error in assess_hiv_risk: {e}")
+        error_msg = f"Error in assess_hiv_risk: {e}"
+        print(error_msg)
+        if hasattr(websocket, 'teachability'):
+            error_memo = (
+                "=== HIV Risk Assessment Error ===\n"
+                f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f"Error: {error_msg}\n"
+                "Partial Results:\n" + "\n\n".join(assessment_log if 'assessment_log' in locals() else ["No responses recorded"])
+            )
+            websocket.teachability._consider_memo_storage(error_memo)
         await websocket.send_text("Sorry, there was an error processing your responses.")
 
 
@@ -326,13 +340,6 @@ Are you currently engaging in Prep uptake on a regular basis? Please respond wit
         print(f"Error processing response: {e}")
         return translate_question("I'm having trouble processing your response. Please try again with a number from 1 to 5.", language)
 
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Sep 10 11:49:18 2024
-
-@author: barbaratao
-"""
 
 
 
