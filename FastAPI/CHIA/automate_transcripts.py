@@ -8,27 +8,25 @@ from dotenv import load_dotenv
 import sys
 from typing import Any, Dict, List, Optional
 
-# --- Add project root to path to allow imports ---
+
 # This assumes automate_transcripts.py is in FastAPI/CHIA/
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# --- Now import from CHIA ---
-# This might require adjusting based on your exact structure and how Python resolves it
+#
 try:
     from FastAPI.CHIA.CHIA_LangchainEmbeddings import HIVPrEPCounselor
 except ImportError:
     print("Error: Could not import HIVPrEPCounselor. Ensure structure and sys.path are correct.")
     sys.exit(1)
 
-# --- Configuration ---
 load_dotenv()
 
 USER_ID = f"direct_llm_user_{uuid.uuid4()}"
 CHAT_ID = str(uuid.uuid4())
 TEACHABILITY_ENABLED = False
-TARGET_MESSAGE_COUNT = 15 # Target user+CHIA messages
+TARGET_MESSAGE_COUNT = 15 
 
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 LLM_MODEL = "gpt-3.5-turbo"
@@ -53,13 +51,10 @@ class MockWebSocket:
     async def send_text(self, text: str):
         print(f"[MockWebSocket] CHIA trying to send: {text}")
         self.sent_messages.append({"type": "text", "content": text})
-        # In a real scenario, this would go to the user. Here, we just log it.
-        # The main loop will get the actual response via get_latest_response.
-
+ 
     async def send_json(self, data: dict):
         print(f"[MockWebSocket] CHIA trying to send JSON: {json.dumps(data)}")
         self.sent_messages.append({"type": "json", "content": data})
-        # Handle specific messages if needed, e.g., teachability flag confirmation
         if data.get("type") == "teachability_flag":
              print("[MockWebSocket] Received teachability flag confirmation.")
 
@@ -68,7 +63,6 @@ class MockWebSocket:
         if self.closed:
             raise Exception("WebSocket is closed") # Or appropriate WebSocket exception
         print("[MockWebSocket] Waiting for user input (receive_text)...")
-        # This is where the simulation gets tricky.
         # A function call (like assess_hiv_risk) might call this expecting user input.
         # The main loop needs to anticipate this and put the LLM's response into the queue.
         user_response = await self.receive_queue.get()
@@ -110,7 +104,7 @@ async def generate_llm_response(conversation_history):
 
     prompt_messages = [
         {"role": "system", "content": (
-            "You are simulating a HUMAN user asking questions to an HIV/PrEP counseling chatbot named CHIA. "
+            "You are simulating a HUMAN user asking questions to an HIV/PrEP counseling chatbot named CHIA. Act as a patient seeking information, not a counselor. "
             "Your persona is someone seeking information. Ask relevant questions, react naturally to CHIA's responses based on the dialogue history. "
             "Respond concisely like a real chat user. Provide simple answers ('yes', 'no', 'maybe', 'I don't know') if CHIA asks assessment questions. "
             "Focus ONLY on being the USER. NEVER act as the assistant or CHIA. "
