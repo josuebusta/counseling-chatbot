@@ -50,10 +50,82 @@ class TrackableGroupChatManager(autogen.GroupChatManager):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._last_message = None
-    
+        self._message_history = set()
+
+    # def _process_received_message(self, message, sender, silent):
+    #     if self.websocket:
+    #         # formatted_message = self._format_message(message, sender)
+    #         # if formatted_message and formatted_message not in self._message_history:  
+    #         asyncio.create_task(self.send_message(message))
+    #         self._message_history.add(message)
+    #     return super()._process_received_message(message, sender, silent)
+
+    def _format_message(self, message, sender) -> str:
+        """Format the message for display, handling various message types"""
+        try:
+       
+            if isinstance(message, dict):
+                if 'function_call' in message or 'tool_calls' in message:
+                    return None
+                
+                if 'content' in message and message['content']:
+                    return self._clean_message(message['content'])
+                
+                if 'role' in message and message['role'] == 'tool':
+                    if 'content' in message:
+                        return self._clean_message(message['content'])
+                    
+            elif isinstance(message, str) and message.strip():
+                return self._clean_message(message)
+                
+            return None
+        except Exception as e:
+            print(f"Error formatting message: {e}")
+            return None
+
+    def _clean_message(self, message: str) -> str:
+        """Clean and format message content"""
+        # Remove any existing prefixes
+        prefixes = ["counselor:", "CHIA:", "assessment_bot:"]
+        message = message.strip()
+
+        for prefix in prefixes:
+            if message.lower().startswith(prefix.lower()):
+                message = message[len(prefix):].strip()
+        return message
+
+    async def send_message(self, message: str):
+        """Send message to websocket, avoiding duplicates"""
+        if message and message != self._last_message:
+            try:
+                await self.websocket.send_text(message)
+                self._last_message = message
+            except Exception as e:
+                print(f"Error sending message: {e}")
+
     def _process_received_message(self, message, sender, silent):
-        """Process received message without sending back directly"""
+        """Process and deduplicate messages"""
+        if self.websocket:
+            formatted_message = self._format_message(message, sender)
+            if formatted_message:
+                # message_hash = self._calculate_message_hash(formatted_message, sender.name)
+                
+                # if not self._is_duplicate(message_hash):
+                #     self._message_timestamps[message_hash] = time.time()
+                #     self._message_history.add(message_hash)
+                asyncio.create_task(self.send_message(formatted_message))
+
         return super()._process_received_message(message, sender, silent)
+
+    async def send_message(self, message: str):
+        """Send message to websocket with deduplication"""
+        try:
+            print("sending message")
+            if message and message != self._last_message:
+                await self.websocket.send_text(message)
+                self._last_message = message
+        except Exception as e:
+            print(f"Error sending message: {e}")
 
 
 class HIVPrEPCounselor:
@@ -91,10 +163,14 @@ class HIVPrEPCounselor:
         self.teachability_flag = teachability_flag
         
         # Send initial teachability state to frontend
-        asyncio.create_task(self.send_teachability_state())
+        # asyncio.create_task(self.send_teachability_state())
 
     def check_termination(self, x):
         return x.get("content", "").rstrip().lower() == "end conversation"
+    
+    
+
+
     
     
 
@@ -365,19 +441,19 @@ class HIVPrEPCounselor:
         )
 
         self.manager = TrackableGroupChatManager(
-            groupchat=self.group_chat,
+            groupchat=self.group_chat, 
             llm_config=self.config_list,
-            system_message="""Ensure counselor is primary responder. It should ALWAYS use FAQ agent's
-            knowledge for information unless the information is not available. Only use assessment_bot and search_bot for
+            system_message="""Ensure counselor is primary responder. It should ALWAYS use FAQ agent's 
+            knowledge for information unless the information is not available. Only use assessment_bot and search_bot for 
             explicit requests.
-
+            
                 1. Only one agent should respond to each user message
                 2. After an agent responds, wait for the user's next message
                 3. Never have multiple agents respond to the same user message,
-                4. Ensure counselor responds first using FAQ agent's knowledge,
+                4. Ensure counselor responds first using FAQ agent's knowledge, 
                 unless explicitly asked for risk assessment or provider search
                 """,
-        
+            websocket=self.websocket
         )
         
 
@@ -386,19 +462,38 @@ class HIVPrEPCounselor:
             self.teachability.add_to_agent(counselor)
             self.teachability.add_to_agent(counselor_assistant)
 
+    def get_latest_response(self):
+            """Get the latest valid response"""
+            try:
+                if not self.group_chat.messages:
+                    return None
+                    
+                for message in reversed(self.group_chat.messages):
+                    if isinstance(message, dict) and message.get('content'):
+                        return message['content']
+                    elif isinstance(message, str):
+                        return message
+                        
+                return None
+            except Exception as e:
+                print(f"Error getting response: {e}")
+                return None
 
 
-    async def initiate_chat(self, user_input_content: str = None):
-        if not user_input_content:
+    async def initiate_chat(self, user_input: str = None):
+        if not user_input:
             return
 
         try:
-            print(f"Initiating chat with content: '{user_input_content}'")
+            print(f"Initiating chat with content: '{user_input}'")
             # agents[1] is the patient agent
             await self.agents[1].a_initiate_chat(
                 recipient=self.manager,
-                message=user_input_content,
+                message=str(user_input),
+                websocket=self.websocket,
                 clear_history=False,
+                system_message="""Ensure counselor responds first using FAQ agent's knowledge, 
+                unless explicitly asked for risk assessment or provider search.  Ensure only one agent responds per turn. """
             )
             print("a_initiate_chat completed.") # Add log
         except Exception as e:
