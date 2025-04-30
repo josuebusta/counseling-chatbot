@@ -105,6 +105,7 @@ async def generate_llm_response(conversation_history):
     prompt_messages = [
         {"role": "system", "content": (
             "You are simulating a HUMAN user asking questions to an HIV/PrEP counseling chatbot named CHIA. Act as a patient seeking information, not a counselor. "
+            "The patient should never say things such as 'I am here to help you', 'I am here to assist you', or 'I am here to support you'. "
             "Your persona is someone seeking information. Ask relevant questions, react naturally to CHIA's responses based on the dialogue history. "
             "Respond concisely like a real chat user. Provide simple answers ('yes', 'no', 'maybe', 'I don't know') if CHIA asks assessment questions. "
             "Focus ONLY on being the USER. NEVER act as the assistant or CHIA. "

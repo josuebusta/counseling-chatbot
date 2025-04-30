@@ -31,8 +31,17 @@ RUN npm cache clean --force && \
     npm install -g browserslist && \
     npx update-browserslist-db@latest
 
-# Copy the rest of the application with correct ownership
-COPY --chown=node:node ./chatbot-ui-shadcn ./
+# Copy the rest of the application with correct ownership, excluding node_modules
+COPY --chown=node:node ./chatbot-ui-shadcn/next.config.js ./
+COPY --chown=node:node ./chatbot-ui-shadcn/public ./public
+COPY --chown=node:node ./chatbot-ui-shadcn/src ./src
+COPY --chown=node:node ./chatbot-ui-shadcn/app ./app
+COPY --chown=node:node ./chatbot-ui-shadcn/components ./components
+COPY --chown=node:node ./chatbot-ui-shadcn/lib ./lib
+COPY --chown=node:node ./chatbot-ui-shadcn/styles ./styles
+COPY --chown=node:node ./chatbot-ui-shadcn/types ./types
+COPY --chown=node:node ./chatbot-ui-shadcn/utils ./utils
+COPY --chown=node:node ./chatbot-ui-shadcn/.env* ./
 
 # Set environment variables
 ENV NODE_ENV=production

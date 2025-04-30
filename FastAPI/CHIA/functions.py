@@ -40,6 +40,12 @@ load_dotenv()
 OpenAI.api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI()
 
+# Initialize Supabase client
+supabase = create_client(
+    os.getenv("NEXT_PUBLIC_SUPABASE_URL"),
+    os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+)
+
 # List of questions
 QUESTIONS = [
     "I'll help assess your HIV risk factors. This will involve a few questions about your sexual health and activities. Everything you share is completely confidential, and I'm here to help without judgment. Let's go through this step by step.\nFirst question: Have you had sex without condoms in the past 3 months?",
@@ -339,6 +345,8 @@ Are you currently engaging in Prep uptake on a regular basis? Please respond wit
     except Exception as e:
         print(f"Error processing response: {e}")
         return translate_question("I'm having trouble processing your response. Please try again with a number from 1 to 5.", language)
+    
+
 
 
 
@@ -401,11 +409,6 @@ def notify_research_assistant(support_type, assistant_email, client_id, smtp_ser
         print(f"Failed to send notification. Error: {e}")
         return (f"Failed to send notification. Error: {e}")
         
-
-supabase = create_client(
-    os.environ.get("NEXT_PUBLIC_SUPABASE_URL"),
-    os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
-)
 
 async def record_support_request(websocket: WebSocket, chat_id: str, language: str) -> str:
     """
@@ -518,6 +521,8 @@ async def handle_inactivity(user_id, last_activity_time):
     print(f"Sending email notification to user {user_id} about inactivity since {last_activity_time}")
 
 
+
+
 async def get_chat_history():
     try:
         max_chats = 50
@@ -525,6 +530,7 @@ async def get_chat_history():
             .select("id") \
             .is_("chat_evaluation_sent", False) \
             .execute()
+        
 
         chat_ids = [chat["id"] for chat in non_evaluated_chats.data or []]
         
@@ -532,8 +538,10 @@ async def get_chat_history():
             print("No non-evaluated chats found.")
             return None
         chat_ids = chat_ids[:max_chats]
+        print("chat_ids", chat_ids[0])
 
         for chat_id in chat_ids:
+            
             try:
         
                 history_response = supabase.table("messages") \
@@ -551,9 +559,9 @@ async def get_chat_history():
                 evaluate_counseling_response(str(chat_id), chat_history)
                 print(f"Evaluated {len(chat_history)} chat messages")
 
-                # Evaluate chat history motivational interviewing
-                evaluate_motivational_interview(str(chat_id), chat_history)
-                print(f"Evaluated {len(chat_history)} chat messages")
+                # # Evaluate chat history motivational interviewing
+                # evaluate_motivational_interview(str(chat_id), chat_history)
+                # print(f"Evaluated {len(chat_history)} chat messages")
 
                 # Mark chats as evaluated
                 supabase.table("chats") \
@@ -570,10 +578,6 @@ async def get_chat_history():
     except Exception as e:
         print(f"Error processing chat history: {e}")
         return None
-
-
-
-
 
 async def check_inactive_chats():
     try:

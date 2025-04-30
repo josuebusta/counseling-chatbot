@@ -17,8 +17,7 @@ from pydantic import BaseModel
 from typing import List, Union, Dict, Optional
 import os
 from autogen.agentchat.contrib.capabilities.teachability import Teachability
-from .functions import search_provider, assess_ttm_stage_single_question, assess_hiv_risk, notify_research_assistant, record_support_request
-import time
+from .functions import search_provider, assess_ttm_stage_single_question, assess_hiv_risk, notify_research_assistant, record_support_request, translate_question
 import hashlib
 from typing import Set
 import platform
@@ -38,7 +37,10 @@ from supabase import create_client
 import openai
 from openai import OpenAI
 from langchain.schema import Document
+from datetime import datetime
 
+# Initialize OpenAI client
+client = OpenAI()
 
 # CONFIGURATION 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -134,6 +136,8 @@ class HIVPrEPCounselor:
         self.user_id = user_id
         self.chat_id = chat_id 
         self.teachability_flag = teachability_flag
+        if self.teachability_flag is None:
+            self.teachability_flag = True
         print(f"[INIT] Teachability flag set to: {self.teachability_flag}")
         print("chat_id", self.chat_id)
         self.api_key = os.getenv('OPENAI_API_KEY')
@@ -156,7 +160,7 @@ class HIVPrEPCounselor:
         
         self.agent_history = []
         self.setup_rag()
-        self.initialize_teachability()  # Move teachability initialization before agents
+        self.initialize_teachability() 
         self.initialize_agents()
 
         # Store teachability state
@@ -195,7 +199,7 @@ class HIVPrEPCounselor:
                 input_variables=["context", "question"]
             )
 
-            # Load data first
+            # Load data from URL instead of local file
             loader = WebBaseLoader("https://raw.githubusercontent.com/amarisg25/embedding-data-chatbot/main/HIV_PrEP_knowledge_embedding.json")
             data = loader.load()
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
@@ -229,7 +233,6 @@ class HIVPrEPCounselor:
                 search_kwargs={"k": 3} 
             )
             
-
             self._qa_chain = RetrievalQA.from_chain_type(
                 llm, retriever=retriever, chain_type_kwargs={"prompt": prompt}
             )
@@ -262,13 +265,17 @@ class HIVPrEPCounselor:
             os.makedirs(user_db_path, exist_ok=True)
             
             self.teachability = Teachability(
-                reset_db=False,
+                reset_db=False, 
                 path_to_db_dir=user_db_path,
                 recall_threshold=2.5,
-                verbosity=1
+                verbosity=1,
+                llm_config=self.config_list
             )
             print(f"Teachability initialized with path: {user_db_path}")
-            print("Memo store contents:", self.teachability.memo_store)
+            
+            # Prepopulate with some initial memos
+            self.teachability.prepopulate_db()
+            print("Memo store initialized and prepopulated")
 
 
     # AGENTS
@@ -280,12 +287,25 @@ class HIVPrEPCounselor:
 
         Key Guidelines:
         1. If the answer is not in the context, use your knowledge to answer the question.
+        
+        2. If the user asks you to summarize the conversation, call the summarize_chat_history function.
 
-        2. Always answer in the language the user asked the previous question in.
 
-        3. Use motivational interviewing techniques to answer the question.
 
-        4. YOU ARE THE PRIMARY RESPONDER. Always respond first unless:
+        2. Always answer in the language the user asked the previous question in. Assume the user's language is English UNLESS you are sure they are not speaking English.
+
+        3. Use motivational interviewing techniques to answer the question for all languages. 
+            The metrics for motivational interviewing are:
+            - Empathy
+            - Evocation
+            - Collaboration
+            - Autonomy Support
+            - Affirmation
+            - Open-ended questions
+            - Reflections
+        
+       
+        5. YOU ARE THE PRIMARY RESPONDER. Always respond first unless:
         - User explicitly asks for risk assessment
         - User explicitly asks to find a provider
 
@@ -366,8 +386,51 @@ class HIVPrEPCounselor:
                 f"Risk Level: {result}\n"
             )
             self.teachability._consider_memo_storage(complete_memo)
+
             return result
         
+        def summarize_chat_history_wrapper(user_request: str, language: str = "English") -> str:
+            if self.teachability_flag is None:
+                self.teachability_flag = True
+
+            if not self.teachability_flag:
+                return "I apologize, but I couldn't find any chat history to summarize. The teachability feature is not enabled."
+            
+            try:
+                # Get all memos from the store
+                memos = self.teachability.memo_store.get_related_memos(user_request, n_results=200, threshold=10.0)
+                if not memos:
+                    return "I apologize, but I couldn't find any previous conversations to summarize."
+                
+                # Format the memos into a readable string
+                memo_text = "\n".join([f"Conversation: {memo[1]}\nResponse: {memo[2]}" for memo in memos])
+                
+                # Create messages for OpenAI
+                messages = [
+                    {"role": "system", "content": """You are a helpful assistant that summarizes chat history in a natural, conversational way.
+                    Please provide a comprehensive summary of the conversations, highlighting key topics discussed and any important information shared.
+                    Focus on the main themes and important details from the conversations.
+                    Make the summary sound natural and conversational, as if you're recalling the conversation from memory."""},
+                    {"role": "user", "content": f"Here are the previous conversations:\n{memo_text}\n\nPlease summarize these conversations based on this request: {user_request}"}
+                ]
+                
+                # Call OpenAI API
+                chat_completion = client.chat.completions.create(
+                    model="gpt-4-turbo",
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=500
+                )
+                
+                if not chat_completion or not chat_completion.choices:
+                    return "I apologize, but I couldn't generate a summary of the chat history."
+                
+                return translate_question(chat_completion.choices[0].message.content, language)
+                
+            except Exception as e:
+                print(f"Error summarizing chat history: {e}")
+                return "I apologize, but I encountered an error while trying to summarize our previous conversations."
+
         def search_provider_wrapper(zip_code: str, language: str) -> str:
             return search_provider(zip_code, language)
 
@@ -377,8 +440,20 @@ class HIVPrEPCounselor:
         async def record_support_request_wrapper(language: str) -> str:
             return await record_support_request(self.websocket, self.chat_id, language)
         
-
+        async def notify_research_assistant_wrapper(language: str) -> str:
+            return await notify_research_assistant(self.websocket, language)
+        
         # Register functions
+
+        if self.teachability_flag:
+            autogen.agentchat.register_function(
+                summarize_chat_history_wrapper,
+                caller=counselor_assistant,
+                executor=counselor,
+                name="summarize_chat_history",
+                description="""Summarizes all previous conversations stored in the teachability system, 
+                including risk assessments, provider searches, status changes, and support requests.""",
+            )
         autogen.agentchat.register_function(
             record_support_request_wrapper,
             caller=counselor_assistant,
@@ -392,6 +467,14 @@ class HIVPrEPCounselor:
             For the language parameter, please detect the language of the user's question and pass it as a parameter.""",
         )
 
+        autogen.agentchat.register_function(
+            notify_research_assistant_wrapper,
+            caller=counselor_assistant,
+            executor=counselor,
+            name="notify_research_assistant",
+            description="""Notify the research assistant when the user is ready to be contacted.
+            """,
+        )
         autogen.agentchat.register_function(
             assess_status_of_change_wrapper,
             caller=counselor_assistant,
@@ -424,6 +507,16 @@ class HIVPrEPCounselor:
             executor=counselor,
             name="search_provider",
             description="Returns a list of nearby providers. After getting the zip code, immediatelyb return the list of providers. DO NOT say anythiing such as: Please wait while I search for providers. Just return the list of providers. For the language parameter, please detect the language of the user's question and pass it as a parameter.",
+        )
+
+        autogen.agentchat.register_function(
+            summarize_chat_history_wrapper,
+            caller=counselor_assistant,
+            executor=counselor,
+            name="summarize_chat_history",
+            description="""Summarizes all previous conversations stored in the teachability system, 
+            including risk assessments, provider searches, status changes, and support requests.
+             For the language parameter, please detect the language of the user's question and pass it as a parameter.""",
         )
 
         speaker_transitions = {
