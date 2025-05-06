@@ -43,7 +43,7 @@ async def run_inactive_chat_checker():
             current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             logger.info(f"Running check #{counter} at {current_time}")
 
-            await get_chat_history()
+            # await get_chat_history()
             await check_inactive_chats()
             await create_transcript()
             
@@ -54,6 +54,7 @@ async def run_inactive_chat_checker():
         except Exception as e:
             logger.error(f"Error in check #{counter}: {e}")
             await asyncio.sleep(60)  # Wait before retrying
+
 
 # Create FastAPI app with lifespan
 app = FastAPI(lifespan=lifespan)

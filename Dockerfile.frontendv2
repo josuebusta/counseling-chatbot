@@ -6,10 +6,10 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create directory with proper permissions first
-RUN mkdir -p /chatbot-ui-shadcn && \
-    chown -R node:node /chatbot-ui-shadcn
+RUN mkdir -p /app && \
+    chown -R node:node /app
 
-WORKDIR /chatbot-ui-shadcn
+WORKDIR /app
 
 # Configure npm for non-root global installations
 RUN mkdir -p /home/node/.npm-global && \
@@ -22,26 +22,18 @@ USER node
 ENV PATH=/home/node/.npm-global/bin:$PATH
 ENV NPM_CONFIG_PREFIX=/home/node/.npm-global
 
-# Copy package files FIRST with correct ownership
+# Create required directories
+RUN mkdir -p ./src ./app ./components ./lib ./styles ./types ./utils ./public ./supabase
+
+# Copy package.json from chatbot-ui-shadcn directory
 COPY --chown=node:node ./chatbot-ui-shadcn/package*.json ./
 
-# Install dependencies as node user
+# Install dependencies
 RUN npm cache clean --force && \
-    npm install --legacy-peer-deps --production=false && \
-    npm install -g browserslist && \
-    npx update-browserslist-db@latest
+    npm install --legacy-peer-deps --no-fund --no-audit
 
-# Copy the rest of the application with correct ownership, excluding node_modules
-COPY --chown=node:node ./chatbot-ui-shadcn/next.config.js ./
-COPY --chown=node:node ./chatbot-ui-shadcn/public ./public
-COPY --chown=node:node ./chatbot-ui-shadcn/src ./src
-COPY --chown=node:node ./chatbot-ui-shadcn/app ./app
-COPY --chown=node:node ./chatbot-ui-shadcn/components ./components
-COPY --chown=node:node ./chatbot-ui-shadcn/lib ./lib
-COPY --chown=node:node ./chatbot-ui-shadcn/styles ./styles
-COPY --chown=node:node ./chatbot-ui-shadcn/types ./types
-COPY --chown=node:node ./chatbot-ui-shadcn/utils ./utils
-COPY --chown=node:node ./chatbot-ui-shadcn/.env* ./
+# Copy all files from chatbot-ui-shadcn directory
+COPY --chown=node:node ./chatbot-ui-shadcn/ ./
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -50,27 +42,27 @@ ENV NODE_OPTIONS="--max_old_space_size=4096"
 ENV DOCKER_BUILD=true
 
 # Build the application
-RUN npm run build
-
+RUN npm run build || (echo "Build failed. Check logs for details." && exit 1)
 
 # Production stage
 FROM node:18-slim AS runner
 
-WORKDIR /chatbot-ui-shadcn
+WORKDIR /app
 
 # Create directory and set permissions
-RUN mkdir -p /chatbot-ui-shadcn && \
-    chown -R node:node /chatbot-ui-shadcn
+RUN mkdir -p /app && \
+    chown -R node:node /app
 
 # Switch to node user
 USER node
 
 # Copy only necessary files from builder
-COPY --from=builder --chown=node:node /chatbot-ui-shadcn/next.config.js ./
-COPY --from=builder --chown=node:node /chatbot-ui-shadcn/public ./public
-COPY --from=builder --chown=node:node /chatbot-ui-shadcn/.next ./.next
-COPY --from=builder --chown=node:node /chatbot-ui-shadcn/node_modules ./node_modules
-COPY --from=builder --chown=node:node /chatbot-ui-shadcn/package.json ./package.json
+COPY --from=builder --chown=node:node /app/next.config.js ./
+COPY --from=builder --chown=node:node /app/public ./public
+COPY --from=builder --chown=node:node /app/.next ./.next
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/package.json ./package.json
+
 
 # Start the application
 CMD ["npm", "start"]

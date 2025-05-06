@@ -272,10 +272,7 @@ class HIVPrEPCounselor:
                 llm_config=self.config_list
             )
             print(f"Teachability initialized with path: {user_db_path}")
-            
-            # Prepopulate with some initial memos
-            self.teachability.prepopulate_db()
-            print("Memo store initialized and prepopulated")
+        
 
 
     # AGENTS
@@ -289,6 +286,7 @@ class HIVPrEPCounselor:
         1. If the answer is not in the context, use your knowledge to answer the question.
         
         2. If the user asks you to summarize the conversation, call the summarize_chat_history function.
+        3. If someone asks for HIV risk assessment, call the assess_hiv_risk function.
 
 
 
@@ -390,29 +388,40 @@ class HIVPrEPCounselor:
             return result
         
         def summarize_chat_history_wrapper(user_request: str, language: str = "English") -> str:
-            if self.teachability_flag is None:
-                self.teachability_flag = True
-
-            if not self.teachability_flag:
-                return "I apologize, but I couldn't find any chat history to summarize. The teachability feature is not enabled."
-            
             try:
+                # Check if teachability is initialized
+                if not hasattr(self, 'teachability') or not self.teachability:
+                    return "I apologize, but I couldn't find any chat history to summarize. The teachability feature is not properly initialized."
+                
+                if self.teachability_flag is None:
+                    self.teachability_flag = True
+
+                if not self.teachability_flag:
+                    return "I apologize, but I couldn't find any chat history to summarize. The teachability feature is not enabled."
+                print("teachability_flag", self.teachability_flag)
+                
                 # Get all memos from the store
                 memos = self.teachability.memo_store.get_related_memos(user_request, n_results=200, threshold=10.0)
                 if not memos:
                     return "I apologize, but I couldn't find any previous conversations to summarize."
+
+                print("memos", memos)
                 
                 # Format the memos into a readable string
-                memo_text = "\n".join([f"Conversation: {memo[1]}\nResponse: {memo[2]}" for memo in memos])
+                memo_text = "\n".join([f"Conversation: {memo[0]}\nResponse: {memo[1]}" for memo in memos])
+                print("memo_text", memo_text)
                 
                 # Create messages for OpenAI
                 messages = [
                     {"role": "system", "content": """You are a helpful assistant that summarizes chat history in a natural, conversational way.
                     Please provide a comprehensive summary of the conversations, highlighting key topics discussed and any important information shared.
                     Focus on the main themes and important details from the conversations.
-                    Make the summary sound natural and conversational, as if you're recalling the conversation from memory."""},
+                    Make the summary sound natural and conversational, as if you're recalling the conversation from memory.
+                    When answering a summary question, immediately answer with the summary -- DO NOT say things such as I’m working on providing that summary for you. Please bear with me a moment! If there’s anything specific you’d like me to include, let me know."
+                    """},
                     {"role": "user", "content": f"Here are the previous conversations:\n{memo_text}\n\nPlease summarize these conversations based on this request: {user_request}"}
                 ]
+                print("messages", messages)
                 
                 # Call OpenAI API
                 chat_completion = client.chat.completions.create(
