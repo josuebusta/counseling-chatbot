@@ -20,33 +20,28 @@ export class WebSocketManager {
   }
 
   public initializeWithUserId(userId: string): Promise<void> {
-    // If already initializing with this user ID, return existing promise
-    if (this.initializationPromise && this.userId === userId) {
-      return this.initializationPromise;
-    }
-
     this.userId = userId;
     
     this.initializationPromise = new Promise((resolve) => {
       const ws = this.getSocket();
-      console.log("isInitialized")
-      if (!this.isInitialized) {
-        if (ws.readyState === WebSocket.OPEN) {
-          console.log("readyState")
-          this.sendUserId();
-        } else {
-          const openHandler = () => {
-            console.log("openHandler1")
-            this.sendUserId();
-            ws.removeEventListener('open', openHandler);
-
-          };
-          ws.addEventListener('open', openHandler);
-          console.log("openHandler2")
+      if (ws.readyState === WebSocket.OPEN) {
+        this.sendUserId();
+        if (this.chatId) {
+          this.sendChatId();
         }
+        resolve();
+      } else {
+        const openHandler = () => {
+          this.sendUserId();
+          if (this.chatId) {
+            this.sendChatId();
+          }
+          ws.removeEventListener('open', openHandler);
+          resolve();
+        };
+        ws.addEventListener('open', openHandler);
       }
     });
-    console.log("initializationPromise", this.initializationPromise)
 
     return this.initializationPromise;
   }
@@ -58,36 +53,31 @@ export class WebSocketManager {
       type: 'user_id',
       content: this.userId
     }));
-
   }
 
   public initializeWithChatId(chatId: string | null): Promise<void> {
-    if (this.initializationPromise && this.chatId === chatId) {
-      return this.initializationPromise;
-    }
-
     this.chatId = chatId;
     
     this.initializationPromise = new Promise((resolve) => {
       const ws = this.getSocket();
-      console.log("isInitialized")
-      if (!this.isInitialized) {
-        if (ws.readyState === WebSocket.OPEN) {
-          console.log("readyState")
-          this.sendChatId();
-        } else {
-          const openHandler = () => {
-            console.log("openHandler1")
-            this.sendUserId();
-            ws.removeEventListener('open', openHandler);
-
-          };
-          ws.addEventListener('open', openHandler);
-          console.log("openHandler2")
+      if (ws.readyState === WebSocket.OPEN) {
+        if (this.userId) {
+          this.sendUserId();
         }
+        this.sendChatId();
+        resolve();
+      } else {
+        const openHandler = () => {
+          if (this.userId) {
+            this.sendUserId();
+          }
+          this.sendChatId();
+          ws.removeEventListener('open', openHandler);
+          resolve();
+        };
+        ws.addEventListener('open', openHandler);
       }
     });
-    console.log("initializationPromise", this.initializationPromise)
 
     return this.initializationPromise;
   }
@@ -99,7 +89,6 @@ export class WebSocketManager {
       type: 'chat_id',
       content: this.chatId
     }));
-
   }
 
   public async sendTeachabilityFlag(teachabilityFlag: boolean) {
@@ -125,24 +114,16 @@ export class WebSocketManager {
 
       this.socket.onopen = () => {
         console.log("WebSocket connection established");
-        // Process any queued messages if we're already initialized
-        
         if (this.isInitialized) {
           this.processQueue();
         }
       };
-    
-
-
-        this.initializationPromise = null;
-
 
       this.socket.onclose = () => {
         console.log("WebSocket connection closed");
         this.socket = null;
         this.isInitialized = false;
         this.initializationPromise = null;
-        
       };
 
       this.socket.onerror = (error) => {
@@ -164,35 +145,6 @@ export class WebSocketManager {
     }
   }
 
-  // public async sendChatMessage(content: string): Promise<any> {
-  //   if (!this.isInitialized) {
-  //     throw new Error('WebSocket not initialized');
-  //   }
-
-  //   const messageId = Math.random().toString(36).substring(7);
-  //   const message = {
-  //     type: 'message',
-  //     messageId,
-  //     content,
-  //     role: 'user'
-  //   };
-
-  //   return new Promise((resolve, reject) => {
-  //     const timeout = setTimeout(() => {
-  //       this.pendingMessageResolvers.delete(messageId);
-  //       reject(new Error('Message timeout'));
-  //     }, 30000); // 30 second timeout
-
-  //     this.pendingMessageResolvers.set(messageId, (response) => {
-  //       clearTimeout(timeout);
-  //       resolve(response);
-  //     });
-
-  //     this.sendMessage(message);
-  //   });
-  // }
-
-
   private sendMessage(message: any): void {
     if (!this.socket) {
       this.messageQueue.push(message);
@@ -204,28 +156,23 @@ export class WebSocketManager {
     } else if (this.socket.readyState === WebSocket.CONNECTING) {
       this.messageQueue.push(message);
     } else {
-      // Socket is closing or closed
       this.socket = null;
       this.messageQueue.push(message);
-      this.getSocket(); // Recreate the socket
+      this.getSocket();
     }
   }
 
   public close() {
     if (this.socket) {
       this.socket.close();
-      this.socket.onclose = () => {
-        console.log("WebSocket connection closed");
-        this.socket = null;
-        this.isInitialized = false;
-        this.initializationPromise = null;
-      };
-      this.getSocket();
-      
+      this.socket = null;
+      this.isInitialized = false;
+      this.initializationPromise = null;
+      this.chatId = null;
+      this.userId = null;
+      this.messageQueue = [];
     }
   }
 }
 
-    
-    
 export const wsManager = WebSocketManager.getInstance();

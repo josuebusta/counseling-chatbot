@@ -72,7 +72,6 @@ export const useChatHandler = () => {
     setIsInitialMessageSent,
     chatId,
     setChatId,
-   
   } = useContext(ChatbotUIContext)
 
   const chatInputRef = useRef<HTMLTextAreaElement>(null)
@@ -81,17 +80,20 @@ export const useChatHandler = () => {
   let currentChat = selectedChat ? { ...selectedChat } : null
   const response = "Hello, my name is CHIA. I am an AI assistant for HIV counselling. It's nice to meet you. What can I help you with? Please let me know if you would like me to begin with assessing your HIV risk." 
 
-
-  
-
+  // // Initialize chat ID when component mounts
+  // useEffect(() => {
+  //   if (!chatId) {
+  //     const initialChatId = uuidv4();
+  //     setChatId(initialChatId);
+  //     if (profile?.user_id) {
+  //       wsManager.initializeWithUserId(profile.user_id);
+  //     }
+  //     wsManager.initializeWithChatId(initialChatId);
+  //   }
+  // }, [chatId, profile?.user_id, setChatId]);
 
   useEffect(() => {
     const handleInitialMessage = async () => {
-      // Ensure WebSocket connection is set
-
-      // Set response based on your WebSocket logic or event (this is just an example)
-      // const response = await someApiCallOrSocketResponse();
-
       console.log("Response received:", response);
       if (chatMessages.length > 0) {
         return;
@@ -99,24 +101,14 @@ export const useChatHandler = () => {
 
       console.log("Profile found, setting initial message sent flag");
 
-      // setIsInitialMessageSent(true);
-      // if (!chatId) {
-      //   setChatId(uuidv4());
-      //   console.log("chatId", chatId);
-      // }
-      
-
-      //wsManager.initializeWithChatId(chatId);
-      console.log("chatId", chatId);
-
       if (response === "Hello, my name is CHIA. I am an AI assistant for HIV counselling. It's nice to meet you. What can I help you with? Please let me know if you would like me to begin with assessing your HIV risk.") {
         const tempMessage = {
           message: {
-            chat_id: "",
+            chat_id: chatId || "",
             assistant_id: selectedAssistant?.id || null,
             content: response,
             created_at: new Date().toISOString(),
-            id: chatId,
+            id: chatId || "",
             image_paths: [],
             model: chatSettings?.model || "default",
             role: "assistant",
@@ -133,15 +125,7 @@ export const useChatHandler = () => {
     };
 
     handleInitialMessage();
-  }, [isInitialMessageSent]);
-
-  // useEffect(() => {
-  //   if (!chatMessages) {
-  //     wsManager.close()
-  //   }
-  // }, [chatMessages])
-
-
+  }, [isInitialMessageSent, chatId]);
 
   useEffect(() => {
     if (!isPromptPickerOpen || !isFilePickerOpen || !isToolPickerOpen) {
@@ -150,79 +134,82 @@ export const useChatHandler = () => {
   }, [isPromptPickerOpen, isFilePickerOpen, isToolPickerOpen])
 
   const handleNewChat = async () => {
+    // First close any existing WebSocket connection
+    if (wsManager) {
+        wsManager.close();
+    }
+
+    // Reset all state
     setIsInitialMessageSent(false);
-    window.location.reload();
+    setUserInput("");
+    setChatMessages([]);
+    setSelectedChat(null);
+    setChatFileItems([]);
+    setIsGenerating(false);
+    setFirstTokenReceived(false);
+    setChatFiles([]);
+    setChatImages([]);
+    setNewMessageFiles([]);
+    setNewMessageImages([]);
+    setShowFilesDisplay(false);
+    setIsPromptPickerOpen(false);
+    setIsFilePickerOpen(false);
+    setSelectedTools([]);
+    setToolInUse("none");
+
+    if (!selectedWorkspace) return;
+
+    // Generate new chat ID and initialize WebSocket
+    const newChatId = uuidv4();
+    setChatId(newChatId);
     
-   
+    // Small delay to ensure the old connection is fully closed
+    await new Promise(resolve => setTimeout(resolve, 100));
     
-    if (!selectedWorkspace) return
-
-    setUserInput("")
-    setChatMessages([])
-    setSelectedChat(null)
-    setChatFileItems([])
-
-    setIsGenerating(false)
-    setFirstTokenReceived(false)
-
-    setChatFiles([])
-    setChatImages([])
-    setNewMessageFiles([])
-    setNewMessageImages([])
-    setShowFilesDisplay(false)
-    setIsPromptPickerOpen(false)
-    setIsFilePickerOpen(false)
-
-    setSelectedTools([])
-    setToolInUse("none")
+    // Initialize new WebSocket connection with both user ID and chat ID
+    if (profile?.user_id) {
+        await wsManager.initializeWithUserId(profile.user_id);
+    }
+    await wsManager.initializeWithChatId(newChatId);
+    setIsInitialMessageSent(true);
 
     if (selectedAssistant) {
-      setChatSettings({
-        model: selectedAssistant.model as LLMID,
-        prompt: selectedAssistant.prompt,
-        temperature: selectedAssistant.temperature,
-        contextLength: selectedAssistant.context_length,
-        includeProfileContext: selectedAssistant.include_profile_context,
-        includeWorkspaceInstructions:
-          selectedAssistant.include_workspace_instructions,
-        embeddingsProvider: selectedAssistant.embeddings_provider as
-          | "openai"
-          | "local"
-      })
+        setChatSettings({
+            model: selectedAssistant.model as LLMID,
+            prompt: selectedAssistant.prompt,
+            temperature: selectedAssistant.temperature,
+            contextLength: selectedAssistant.context_length,
+            includeProfileContext: selectedAssistant.include_profile_context,
+            includeWorkspaceInstructions: selectedAssistant.include_workspace_instructions,
+            embeddingsProvider: selectedAssistant.embeddings_provider as "openai" | "local"
+        });
 
-      let allFiles = []
+        let allFiles = [];
+        const assistantFiles = (await getAssistantFilesByAssistantId(selectedAssistant.id)).files;
+        allFiles = [...assistantFiles];
+        
+        const assistantCollections = (await getAssistantCollectionsByAssistantId(selectedAssistant.id)).collections;
+        for (const collection of assistantCollections) {
+            const collectionFiles = (await getCollectionFilesByCollectionId(collection.id)).files;
+            allFiles = [...allFiles, ...collectionFiles];
+        }
+        
+        const assistantTools = (await getAssistantToolsByAssistantId(selectedAssistant.id)).tools;
+        setSelectedTools(assistantTools);
+        
+        setChatFiles(
+            allFiles.map(file => ({
+                id: file.id,
+                name: file.name,
+                type: file.type,
+                file: null
+            }))
+        );
 
-      const assistantFiles = (
-        await getAssistantFilesByAssistantId(selectedAssistant.id)
-      ).files
-      allFiles = [...assistantFiles]
-      const assistantCollections = (
-        await getAssistantCollectionsByAssistantId(selectedAssistant.id)
-      ).collections
-      for (const collection of assistantCollections) {
-        const collectionFiles = (
-          await getCollectionFilesByCollectionId(collection.id)
-        ).files
-        allFiles = [...allFiles, ...collectionFiles]
-      }
-      const assistantTools = (
-        await getAssistantToolsByAssistantId(selectedAssistant.id)
-      ).tools
+        if (allFiles.length > 0) setShowFilesDisplay(true);
+    }
 
-      setSelectedTools(assistantTools)
-      setChatFiles(
-        allFiles.map(file => ({
-          id: file.id,
-          name: file.name,
-          type: file.type,
-          file: null
-        }))
-      )
-
-      if (allFiles.length > 0) setShowFilesDisplay(true)
-
-    } 
-    return router.push(`/${selectedWorkspace.id}/chat`)
+    return router.push(`/${selectedWorkspace.id}/chat`);
   }
 
   const handleFocusChatInput = () => {
@@ -235,25 +222,13 @@ export const useChatHandler = () => {
     }
   }
 
-
-
-const handleSendMessage = async (
+  const handleSendMessage = async (
     messageContent: string,
     chatMessages: ChatMessage[],
     isRegeneration: boolean
   ) => {
-    const chatId = uuidv4();
-    console.log("is initial message sent?", isInitialMessageSent)
-    if (!isInitialMessageSent) {
-
-      wsManager.initializeWithChatId(chatId);
-      setIsInitialMessageSent(true);
-    }
-      
-
     const startingInput = messageContent
     console.log("handleSendMessage")
-
 
     try {
       console.log("handleSendMessage3")
@@ -285,10 +260,7 @@ const handleSendMessage = async (
         ...availableOpenRouterModels
       ].find(llm => llm.modelId === chatSettings?.model)
 
-
       console.log("handleSendMessage6")
-
-      
 
       const b64Images = newMessageImages.map(image => image.base64)
 
@@ -299,7 +271,6 @@ const handleSendMessage = async (
         useRetrieval
       ) {
         setToolInUse("retrieval")
-
       }
 
       const { tempUserChatMessage, tempAssistantChatMessage } =
@@ -344,16 +315,12 @@ const handleSendMessage = async (
         setChatMessages,
         setToolInUse
       ).catch(error => {
-  console.error("handleHostedChat error:", error);
-  throw error; 
-});
-console.log("generatedText 0", generatedText)
+        console.error("handleHostedChat error:", error);
+        throw error; 
+      });
+      console.log("generatedText 0", generatedText)
       
-
-  
-
       if (!currentChat) {
-
         console.log("currentChat0")
         currentChat = await handleCreateChat(
           chatSettings!,
@@ -386,10 +353,10 @@ console.log("generatedText 0", generatedText)
       // check if the chat already exists in the chatMessages array to avoid duplicates
       console.log("handleCreateMessages1")
       if (currentChat) {
-      if (currentChat.id == '') {
-        return
+        if (currentChat.id == '') {
+          return
+        }
       }
-    }
 
       console.log("chatMessages", chatMessages)
       console.log("currentChat", currentChat)
