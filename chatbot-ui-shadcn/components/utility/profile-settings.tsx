@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabase/browser-client"
 import { cn } from "@/lib/utils"
 import { OpenRouterLLM } from "@/types"
 import { useChatHandler } from "../chat/chat-hooks/use-chat-handler"
+import { v4 as uuidv4 } from 'uuid';
 
 
 
@@ -119,6 +120,8 @@ useEffect(() => {
       }
       console.log("initializeProfile3")
       wsManager.initializeWithUserId(session.user.id); // removed await
+      const chatId = uuidv4();
+      wsManager.initializeWithChatId(chatId);
       console.log("initializeProfile4")
 
       // // Initialize WebSocket manager with user ID

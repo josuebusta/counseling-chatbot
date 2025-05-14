@@ -273,9 +273,7 @@ class HIVPrEPCounselor:
             )
             print(f"Teachability initialized with path: {user_db_path}")
             
-            # Prepopulate with some initial memos
-            self.teachability.prepopulate_db()
-            print("Memo store initialized and prepopulated")
+
 
 
     # AGENTS

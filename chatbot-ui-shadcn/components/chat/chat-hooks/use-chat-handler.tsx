@@ -166,11 +166,15 @@ export const useChatHandler = () => {
     // Small delay to ensure the old connection is fully closed
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    // Initialize new WebSocket connection with both user ID and chat ID
+    // Initialize new WebSocket connection with chat ID first
+    console.log("newChatId", newChatId)
+    await wsManager.initializeWithChatId(newChatId);
+    
+    // Then initialize with user ID
     if (profile?.user_id) {
         await wsManager.initializeWithUserId(profile.user_id);
     }
-    await wsManager.initializeWithChatId(newChatId);
+    
     setIsInitialMessageSent(true);
 
     if (selectedAssistant) {

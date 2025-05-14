@@ -46,15 +46,6 @@ export class WebSocketManager {
     return this.initializationPromise;
   }
 
-  private sendUserId() {
-    if (!this.userId || !this.socket) return;
-    console.log("Sending user ID:", this.userId);
-    this.socket.send(JSON.stringify({
-      type: 'user_id',
-      content: this.userId
-    }));
-  }
-
   public initializeWithChatId(chatId: string | null): Promise<void> {
     this.chatId = chatId;
     
@@ -80,6 +71,39 @@ export class WebSocketManager {
     });
 
     return this.initializationPromise;
+  }
+
+  public initializeWithIds(userId: string, chatId: string): Promise<void> {
+    this.userId = userId;
+    this.chatId = chatId;
+    
+    this.initializationPromise = new Promise((resolve) => {
+      const ws = this.getSocket();
+      if (ws.readyState === WebSocket.OPEN) {
+        this.sendUserId();
+        this.sendChatId();
+        resolve();
+      } else {
+        const openHandler = () => {
+          this.sendUserId();
+          this.sendChatId();
+          ws.removeEventListener('open', openHandler);
+          resolve();
+        };
+        ws.addEventListener('open', openHandler);
+      }
+    });
+
+    return this.initializationPromise;
+  }
+
+  private sendUserId() {
+    if (!this.userId || !this.socket) return;
+    console.log("Sending user ID:", this.userId);
+    this.socket.send(JSON.stringify({
+      type: 'user_id',
+      content: this.userId
+    }));
   }
 
   private sendChatId() {
