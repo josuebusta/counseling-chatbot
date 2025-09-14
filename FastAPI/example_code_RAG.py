@@ -134,7 +134,7 @@ with gr.Blocks() as demo:
         gr.State(
             [
                 {
-                    "api_key": "OPENAI_API_KEY",
+                    "api_key": os.getenv("OPENAI_API_KEY", ""),
                     "api_base": "",
                     "api_type": "azure",
                     "api_version": "2023-07-01-preview",
@@ -173,7 +173,7 @@ with gr.Blocks() as demo:
             if not config_list:
                 config_list = [
                     {
-                        "api_key": "OPENAI_API_KEY",
+                        "api_key": os.getenv("OPENAI_API_KEY", ""),
                         "api_base": "",
                         "api_type": "azure",
                         "api_version": "2023-07-01-preview",

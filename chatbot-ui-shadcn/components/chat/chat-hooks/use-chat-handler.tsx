@@ -78,7 +78,7 @@ export const useChatHandler = () => {
 
   const messageAlreadySent = useRef(false);
   let currentChat = selectedChat ? { ...selectedChat } : null
-  const response = "Hello, my name is CHIA. I am an AI assistant for HIV counselling. It's nice to meet you. What can I help you with? Please let me know if you would like me to begin with assessing your HIV risk." 
+  const response = "Hello, my name is CHIA. I am an AI assistant for HIV counseling. It's nice to meet you. What can I help you with? Please let me know if you would like me to begin with assessing your HIV risk." 
 
   // // Initialize chat ID when component mounts
   // useEffect(() => {
@@ -101,7 +101,7 @@ export const useChatHandler = () => {
 
       console.log("Profile found, setting initial message sent flag");
 
-      if (response === "Hello, my name is CHIA. I am an AI assistant for HIV counselling. It's nice to meet you. What can I help you with? Please let me know if you would like me to begin with assessing your HIV risk.") {
+      if (response === "Hello, my name is CHIA. I am an AI assistant for HIV counseling. It's nice to meet you. What can I help you with? Please let me know if you would like me to begin with assessing your HIV risk.") {
         const tempMessage = {
           message: {
             chat_id: chatId || "",

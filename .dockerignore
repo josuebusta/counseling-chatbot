@@ -1,4 +1,4 @@
-counselling-env/
+counseling-env/
 .env
 *.pyc
 __pycache__/
@@ -7,7 +7,7 @@ node_modules/
 .vscode/
 .idea/
 .next/
-counselling-env/
+counseling-env/
 echo "node_modules/
 .git/
 .env.local" > .dockerignore

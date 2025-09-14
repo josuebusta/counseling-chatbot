@@ -1,10 +1,10 @@
-# counselling-chatbot
-Chatbot for HIV/PREP counselling
+# counseling-chatbot
+Chatbot for HIV/PREP counseling
 
 Installation guide:
-- Go to current file 'counselling-chatbot' directory
-- Run 'python3.11 -m venv counselling-env' to create virtual env
-- Run 'source counselling-env/bin/activate' to activate virtual env 
+- Go to current file 'counseling-chatbot' directory
+- Run 'python3.11 -m venv counseling-env' to create virtual env
+- Run 'source counseling-env/bin/activate' to activate virtual env 
 - Run 'pip install -r requirements.txt' to install necessary libraries
 
 

@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "start-backend": "source counseling-env/bin/activate && cd FastAPI && uvicorn main:app --reload",
+    "start-frontend": "cd chatbot-ui-shadcn && npm run build && npm run start"
+  },
   "devDependencies": {
     "clean-webpack-plugin": "^4.0.0",
     "gh-pages": "^6.1.1"
