@@ -2,25 +2,22 @@
 Function registry for agent tools and capabilities.
 """
 import autogen
-from .config import client
-from tools.functions import (
-    search_provider, 
-    assess_ttm_stage_single_question, 
-    assess_hiv_risk, 
-    notify_research_assistant, 
-    record_support_request, 
-    translate_question
-)
+from config import client
+from tools.utils import translate_question
+from tools.hiv_assessment import assess_hiv_risk, assess_ttm_stage_single_question
+from tools.provider_search import search_provider
+from tools.support_system import notify_research_assistant, record_support_request
 
 
 class FunctionRegistry:
     """Registry for managing agent functions and tools."""
     
-    def __init__(self, rag_system, teachability_manager, websocket, chat_id: str = None):
+    def __init__(self, rag_system, teachability_manager, websocket, chat_id: str = None, patient_agent=None):
         self.rag_system = rag_system
         self.teachability_manager = teachability_manager
         self.websocket = websocket
         self.chat_id = chat_id
+        self.patient_agent = patient_agent
     
     def register_all_functions(self, counselor, counselor_assistant):
         """Register all available functions with the agents."""
@@ -52,7 +49,7 @@ class FunctionRegistry:
     def _register_assess_hiv_risk(self, counselor, counselor_assistant):
         """Register the assess_hiv_risk function."""
         async def assess_hiv_risk_wrapper(language: str) -> str:
-            result = await assess_hiv_risk(self.websocket, language)
+            result = await assess_hiv_risk(self.patient_agent, language)
             complete_memo = (
                 "=== HIV Risk Assessment Results ===\n"
                 f"Risk Level: {result}\n"
@@ -78,13 +75,13 @@ class FunctionRegistry:
             caller=counselor_assistant,
             executor=counselor,
             name="search_provider",
-            description="Returns a list of nearby providers. After getting the zip code, immediatelyb return the list of providers. DO NOT say anythiing such as: Please wait while I search for providers. Just return the list of providers. For the language parameter, please detect the language of the user's question and pass it as a parameter.",
+            description="Searches for PrEP providers near a given ZIP code. IMPORTANT: You MUST first ask the user for their ZIP code before calling this function. Do not call this function with placeholder text like 'user's zip code'. Wait for the user to provide their actual ZIP code, then call this function with the real ZIP code value. For the language parameter, detect the language of the user's question and pass it as a parameter.",
         )
     
     def _register_assess_status_of_change(self, counselor, counselor_assistant):
         """Register the assess_status_of_change function."""
         async def assess_status_of_change_wrapper(language: str) -> str:
-            return await assess_ttm_stage_single_question(self.websocket, language)
+            return await assess_ttm_stage_single_question(self.patient_agent, language)
         
         autogen.agentchat.register_function(
             assess_status_of_change_wrapper,
@@ -97,7 +94,7 @@ class FunctionRegistry:
     def _register_record_support_request(self, counselor, counselor_assistant):
         """Register the record_support_request function."""
         async def record_support_request_wrapper(language: str) -> str:
-            return await record_support_request(self.websocket, self.chat_id, language)
+            return await record_support_request(self.patient_agent, self.chat_id, language)
         
         autogen.agentchat.register_function(
             record_support_request_wrapper,

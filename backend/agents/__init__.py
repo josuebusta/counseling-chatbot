@@ -1,7 +1,7 @@
 """
 HIV PrEP Counseling System
 
-A modular system for providing HIV PrEP counseling through AI agents with RAG capabilities,
+A modular system for providing HIV PrEP counseling through AI agents with RAG
 teachability features, and WebSocket communication.
 
 Main Components:
@@ -13,21 +13,25 @@ Main Components:
 - TrackableGroupChatManager: WebSocket communication handler
 """
 
-from .hiv_counselor import HIVPrEPCounselor
-from .rag_system import RAGSystem
-from .teachability_manager import TeachabilityManager
+from components.rag_system import RAGSystem
+from components.teachability_manager import TeachabilityManager
 from .agents import AgentFactory
-from .function_registry import FunctionRegistry
-from .group_chat_manager import TrackableGroupChatManager
-from .config import get_api_key, get_llm_config, DEFAULT_CONFIG, client
+from tools.tool_registry import FunctionRegistry
+from components.group_chat_manager import TrackableGroupChatManager
+from .base_agent import BaseAgent
+from .counselor_agent import CounselorAgent
+from .assistant_agent import AssistantAgent
+from config import get_api_key, get_llm_config, DEFAULT_CONFIG, client
 
 __all__ = [
-    'HIVPrEPCounselor',
-    'RAGSystem', 
+    'RAGSystem',
     'TeachabilityManager',
     'AgentFactory',
     'FunctionRegistry',
     'TrackableGroupChatManager',
+    'BaseAgent',
+    'CounselorAgent',
+    'AssistantAgent',
     'get_api_key',
     'get_llm_config',
     'DEFAULT_CONFIG',

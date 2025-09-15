@@ -2013,16 +2013,20 @@ class ConversableAgent(LLMAgent):
 
     async def await_human_input_via_websocket(self, websocket: str):
         try:
-            print("websocket is closed", self.websocket.close)
-            # Check if the websocket is open
-            if not self.websocket.close:  # 'closed' is a boolean attribute, not a method
-                # Wait for the client to send their reply
-                reply = await self.websocket.receive_text()  
-                print("reply is")
-                return reply
-            else:
-                # print(colored(f"WebSocket is closed. Cannot receive input.", "red"))
+            # Check if websocket exists
+            if not hasattr(self, 'websocket') or self.websocket is None:
+                print("WebSocket is None, returning exit")
+                return "exit"
                 
+            # For FastAPI WebSocket, check if it's still connected by trying to receive
+            # We'll use a try-catch approach since FastAPI WebSocket doesn't have a 'closed' attribute
+            try:
+                # Try to receive a message - this will raise an exception if the connection is closed
+                reply = await self.websocket.receive_text()  
+                print("reply received:", reply)
+                return reply
+            except Exception as receive_error:
+                print(f"WebSocket connection error: {receive_error}")
                 return "exit"  # Handle the exit scenario if websocket is closed
         except Exception as e:
             print(f"Error receiving message: {e}")

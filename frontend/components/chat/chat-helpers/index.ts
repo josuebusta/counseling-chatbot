@@ -197,25 +197,54 @@ export const handleHostedChat = async (
       // console.log("isUserMessage 2", isUserMessage)
       
       
-      if (!response.includes('patient:') && !response.includes('{')) {
-        console.log("response 1", response)
-      // Handle the response from your custom backend
-      processResponse(
-        response,
-        isRegeneration
-          ? payload.chatMessages[payload.chatMessages.length - 1]
-          : tempAssistantChatMessage,
-        true,
-        newAbortController,
-        setFirstTokenReceived,
-        setChatMessages,
-        setToolInUse
-      );
+      // Parse the JSON response
+      try {
+        const responseData = JSON.parse(response);
+        console.log("Parsed response data:", responseData);
+        
+        if (responseData.type === 'chat_response' && responseData.content) {
+          console.log("Processing chat response:", responseData.content);
+          // Handle the response from your custom backend
+          processResponse(
+            responseData.content,
+            isRegeneration
+              ? payload.chatMessages[payload.chatMessages.length - 1]
+              : tempAssistantChatMessage,
+            true,
+            newAbortController,
+            setFirstTokenReceived,
+            setChatMessages,
+            setToolInUse
+          );
 
-      setIsGenerating(false); 
+          setIsGenerating(false); 
 
-      // Resolve the promise with the response (or a part of it)
-      resolve(response); 
+          // Resolve the promise with the response
+          resolve(responseData.content); 
+        }
+      } catch (error) {
+        console.log("Non-JSON response:", response);
+        // Handle non-JSON responses (fallback)
+        if (!response.includes('patient:') && !response.includes('{')) {
+          console.log("response 1", response)
+          // Handle the response from your custom backend
+          processResponse(
+            response,
+            isRegeneration
+              ? payload.chatMessages[payload.chatMessages.length - 1]
+              : tempAssistantChatMessage,
+            true,
+            newAbortController,
+            setFirstTokenReceived,
+            setChatMessages,
+            setToolInUse
+          );
+
+          setIsGenerating(false); 
+
+          // Resolve the promise with the response (or a part of it)
+          resolve(response); 
+        }
       }
     };
 

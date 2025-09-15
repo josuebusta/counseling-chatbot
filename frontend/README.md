@@ -1,292 +1,307 @@
-# Chatbot UI
+# CHIA - Chatbot for HIV Intervention & Action - Frontend
 
-The open-source AI chat app for everyone.
+This directory contains CHIA's frontend implementation, organized into a modular architecture for better maintainability and separation of concerns.
 
-<img src="./public/readme/screenshot.png" alt="Chatbot UI" width="600">
+![Counseling Chatbot Screenshot 1](../CHIA_screenshot_1.png)
+![Counseling Chatbot Screenshot 2](../CHIA_screenshot_2.png)
 
-## Demo
+## Directory Structure
 
-View the latest demo [here](https://x.com/mckaywrigley/status/1738273242283151777?s=20).
-
-## Updates
-
-Hey everyone! I've heard your feedback and am working hard on a big update.
-
-Things like simpler deployment, better backend compatibility, and improved mobile layouts are on their way.
-
-Be back soon.
-
--- Mckay
-
-## Official Hosted Version
-
-Use Chatbot UI without having to host it yourself!
-
-Find the official hosted version of Chatbot UI [here](https://chatbotui.com).
-
-## Sponsor
-
-If you find Chatbot UI useful, please consider [sponsoring](https://github.com/sponsors/mckaywrigley) me to support my open-source work :)
-
-## Issues
-
-We restrict "Issues" to actual issues related to the codebase.
-
-We're getting excessive amounts of issues that amount to things like feature requests, cloud provider issues, etc.
-
-If you are having issues with things like setup, please refer to the "Help" section in the "Discussions" tab above.
-
-Issues unrelated to the codebase will likely be closed immediately.
-
-## Discussions
-
-We highly encourage you to participate in the "Discussions" tab above!
-
-Discussions are a great place to ask questions, share ideas, and get help.
-
-Odds are if you have a question, someone else has the same question.
-
-## Legacy Code
-
-Chatbot UI was recently updated to its 2.0 version.
-
-The code for 1.0 can be found on the `legacy` branch.
-
-## Updating
-
-In your terminal at the root of your local Chatbot UI repository, run:
-
-```bash
-npm run update
+```
+frontend/
+├── app/                        # Next.js app directory
+│   ├── [locale]/              # Internationalization support
+│   │   ├── chat/              # Chat interface pages
+│   │   ├── providers/         # Provider search pages
+│   │   ├── assessment/        # HIV risk assessment pages
+│   │   ├── support/           # Support and help pages
+│   │   ├── settings/          # User settings pages
+│   │   ├── layout.tsx         # Root layout component
+│   │   ├── page.tsx           # Home page
+│   │   ├── globals.css        # Global styles
+│   │   └── i18n.ts            # Internationalization config
+│   ├── api/                   # API routes
+│   │   ├── chat/              # Chat-related API endpoints
+│   │   ├── providers/         # Provider search API
+│   │   ├── assessment/        # Assessment API endpoints
+│   │   └── websocket/         # WebSocket connection handling
+│   └── auth/                  # Authentication pages
+│       └── login/             # Login page
+├── components/                # React components
+│   ├── chat/                  # Chat interface components
+│   │   ├── chat-interface.tsx # Main chat interface
+│   │   ├── message-bubble.tsx # Individual message display
+│   │   ├── chat-input.tsx     # Message input component
+│   │   ├── agent-selector.tsx # Agent selection dropdown
+│   │   └── chat-helpers/      # Chat utility components
+│   ├── messages/              # Message display components
+│   │   ├── message-list.tsx   # Message list container
+│   │   ├── message-item.tsx   # Individual message item
+│   │   └── typing-indicator.tsx # Typing animation
+│   ├── models/                # Model selection components
+│   │   ├── model-selector.tsx # Model selection dropdown
+│   │   └── model-info.tsx     # Model information display
+│   ├── setup/                 # Setup and configuration
+│   │   ├── initial-setup.tsx  # Initial setup wizard
+│   │   └── configuration.tsx  # Configuration panel
+│   ├── sidebar/               # Sidebar navigation
+│   │   ├── sidebar.tsx        # Main sidebar component
+│   │   ├── chat-history.tsx   # Chat history list
+│   │   └── navigation.tsx     # Navigation menu
+│   ├── ui/                    # Reusable UI components
+│   │   ├── button.tsx         # Button component
+│   │   ├── input.tsx          # Input component
+│   │   ├── modal.tsx          # Modal component
+│   │   ├── dropdown.tsx       # Dropdown component
+│   │   └── index.ts           # Component exports
+│   └── utility/               # Utility components
+│       ├── loading-spinner.tsx # Loading indicator
+│       ├── error-boundary.tsx  # Error handling
+│       └── toast.tsx          # Toast notifications
+├── lib/                       # Utility libraries
+│   ├── hooks/                 # Custom React hooks
+│   │   ├── use-chat.ts        # Chat functionality hook
+│   │   └── use-websocket.ts   # WebSocket connection hook
+│   ├── models/                # Model configurations
+│   │   ├── openai.ts          # OpenAI model configs
+│   │   └── anthropic.ts       # Anthropic model configs
+│   ├── retrieval/             # Document retrieval utilities
+│   │   ├── vector-search.ts   # Vector search functionality
+│   │   └── document-loader.ts # Document loading utilities
+│   ├── server/                # Server-side utilities
+│   │   ├── supabase.ts        # Supabase client
+│   │   └── auth.ts            # Authentication utilities
+│   └── utils.ts               # General utility functions
+├── types/                     # TypeScript type definitions
+│   ├── chat.ts                # Chat-related types
+│   ├── models.ts              # Model configuration types
+│   ├── providers.ts           # Provider search types
+│   └── api.ts                 # API response types
+├── db/                        # Database schemas and utilities
+│   ├── chats.ts               # Chat data management
+│   ├── messages.ts            # Message data management
+│   ├── providers.ts           # Provider data management
+│   └── storage/               # Local storage utilities
+├── supabase/                  # Supabase configuration
+│   ├── migrations/            # Database migrations
+│   ├── functions/             # Edge functions
+│   └── config.toml            # Supabase configuration
+├── public/                    # Static assets
+│   ├── locales/               # Internationalization files
+│   ├── providers/             # Provider logos and images
+│   └── icons/                 # Application icons
+├── components.json            # UI component configuration
+├── next.config.js             # Next.js configuration
+├── tailwind.config.ts         # Tailwind CSS configuration
+├── tsconfig.json              # TypeScript configuration
+└── package.json               # Dependencies and scripts
 ```
 
-If you run a hosted instance you'll also need to run:
+## Core Components
 
-```bash
-npm run db-push
+### 1. App Directory (`app/`)
+- **Layout System**: Root layout with internationalization support
+- **Page Routing**: Next.js app router with locale-based routing
+- **API Routes**: Server-side API endpoints for backend communication
+- **Authentication**: Login and authentication pages
+
+### 2. Components (`components/`)
+- **Chat Interface**: Real-time chat components with WebSocket integration
+- **Message System**: Message display, input, and management components
+- **Model Selection**: AI model selection and configuration components
+- **Setup & Configuration**: Initial setup and user configuration wizards
+- **Sidebar Navigation**: Chat history, navigation, and user interface
+- **UI Components**: Reusable UI components built with shadcn/ui
+- **Utility Components**: Loading states, error handling, and notifications
+
+### 3. Libraries (`lib/`)
+- **Custom Hooks**: React hooks for chat, WebSocket, and state management
+- **Model Configurations**: AI model settings and API configurations
+- **Retrieval System**: Document search and vector retrieval utilities
+- **Server Utilities**: Supabase client and authentication helpers
+- **General Utils**: Common utility functions and helpers
+
+### 4. Type System (`types/`)
+- **Chat Types**: Message, conversation, and chat-related type definitions
+- **Model Types**: AI model configuration and response types
+- **Provider Types**: Healthcare provider search and data types
+- **API Types**: Backend API request and response type definitions
+
+### 5. Database (`db/`)
+- **Data Management**: Supabase database schemas and data access
+- **Storage Utilities**: Local storage and caching mechanisms
+- **Data Models**: TypeScript interfaces for data structures
+
+## Key Features
+
+1. **Real-time Communication**: WebSocket integration for live chat functionality
+2. **Internationalization**: Multi-language support with locale-based routing
+3. **Responsive Design**: Mobile-compatible design with Tailwind CSS
+4. **Type Safety**: Full TypeScript support with type checking
+5. **Component Library**: UI components with shadcn/ui
+6. **State Management**: Custom hooks for state management
+7. **API Integration**: Seamless communication with FastAPI backend
+
+## Usage
+
+### Basic Setup
+
+```typescript
+// Using the chat interface
+import { ChatInterface } from '@/components/chat/chat-interface'
+import { useChat } from '@/lib/hooks/use-chat'
+
+function ChatPage() {
+  const { messages, sendMessage, isLoading } = useChat()
+  
+  return (
+    <ChatInterface
+      messages={messages}
+      onSendMessage={sendMessage}
+      isLoading={isLoading}
+    />
+  )
+}
 ```
 
-to apply the latest migrations to your live database.
+### Custom Hooks
 
-## Local Quickstart
+```typescript
+// Using WebSocket connection
+import { useWebSocket } from '@/lib/hooks/use-websocket'
 
-Follow these steps to get your own Chatbot UI instance running locally.
-
-You can watch the full video tutorial [here](https://www.youtube.com/watch?v=9Qq3-7-HNgw).
-
-### 1. Clone the Repo
-
-```bash
-git clone https://github.com/mckaywrigley/chatbot-ui.git
+function ChatComponent() {
+  const { socket, isConnected, sendMessage } = useWebSocket('ws://localhost:8000/ws')
+  
+  useEffect(() => {
+    if (socket) {
+      socket.onmessage = (event) => {
+        const data = JSON.parse(event.data)
+        // Handle incoming messages
+      }
+    }
+  }, [socket])
+}
 ```
 
-### 2. Install Dependencies
+### Component Integration
 
-Open a terminal in the root directory of your local Chatbot UI repository and run:
+```typescript
+// Using UI components
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Modal } from '@/components/ui/modal'
+
+function ProviderSearch() {
+  return (
+    <Modal>
+      <Input placeholder="Search providers..." />
+      <Button>Search</Button>
+    </Modal>
+  )
+}
+```
+
+## Module Dependencies
+
+```
+app/[locale]/chat/page.tsx
+├── components/
+│   ├── chat/
+│   │   ├── chat-interface.tsx
+│   │   ├── message-bubble.tsx
+│   │   └── chat-input.tsx
+│   ├── messages/
+│   │   ├── message-list.tsx
+│   │   └── message-item.tsx
+│   └── ui/
+│       ├── button.tsx
+│       └── input.tsx
+├── lib/
+│   ├── hooks/
+│   │   ├── use-chat.ts
+│   │   └── use-websocket.ts
+│   └── utils.ts
+└── types/
+    ├── chat.ts
+    └── api.ts
+```
+
+## Development
+
+### Prerequisites
+
+- **Node.js 18+** - Required for the frontend
+- **npm** - Package manager for Node.js
+- **Backend running** - The FastAPI backend must be running for full functionality
+
+### Installation
 
 ```bash
+# Install dependencies
+cd frontend
 npm install
-```
 
-### 3. Install Supabase & Run Locally
-
-#### Why Supabase?
-
-Previously, we used local browser storage to store data. However, this was not a good solution for a few reasons:
-
-- Security issues
-- Limited storage
-- Limits multi-modal use cases
-
-We now use Supabase because it's easy to use, it's open-source, it's Postgres, and it has a free tier for hosted instances.
-
-We will support other providers in the future to give you more options.
-
-#### 1. Install Docker
-
-You will need to install Docker to run Supabase locally. You can download it [here](https://docs.docker.com/get-docker) for free.
-
-#### 2. Install Supabase CLI
-
-**MacOS/Linux**
-
-```bash
-brew install supabase/tap/supabase
-```
-
-**Windows**
-
-```bash
-scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
-scoop install supabase
-```
-
-#### 3. Start Supabase
-
-In your terminal at the root of your local Chatbot UI repository, run:
-
-```bash
-supabase start
-```
-
-### 4. Fill in Secrets
-
-#### 1. Environment Variables
-
-In your terminal at the root of your local Chatbot UI repository, run:
-
-```bash
+# Set up environment variables
 cp .env.local.example .env.local
+# Edit .env.local with your configuration
 ```
 
-Get the required values by running:
+### Running the Frontend
 
 ```bash
-supabase status
+# Development mode
+npm run dev
+
+# Production build
+npm run build
+npm run start
+
+# From root directory
+npm run frontend
 ```
 
-Note: Use `API URL` from `supabase status` for `NEXT_PUBLIC_SUPABASE_URL`
+### Environment Configuration
 
-Now go to your `.env.local` file and fill in the values.
+The frontend uses environment variables from the root `.env` file:
 
-If the environment variable is set, it will disable the input in the user settings.
+```env
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
-#### 2. SQL Setup
+# OpenAI Configuration
+OPENAI_API_KEY=your_openai_api_key
+```
 
-In the 1st migration file `supabase/migrations/20240108234540_setup.sql` you will need to replace 2 values with the values you got above:
-
-- `project_url` (line 53): `http://supabase_kong_chatbotui:8000` (default) can remain unchanged if you don't change your `project_id` in the `config.toml` file
-- `service_role_key` (line 54): You got this value from running `supabase status`
-
-This prevents issues with storage files not being deleted properly.
-
-### 5. Install Ollama (optional for local models)
-
-Follow the instructions [here](https://github.com/jmorganca/ollama#macos).
-
-### 6. Run app locally
-
-In your terminal at the root of your local Chatbot UI repository, run:
+### Docker
 
 ```bash
-npm run chat
+# Build the Docker image
+docker build -f Dockerfile.frontend -t counseling-frontend .
+
+# Run the container
+docker run -p 3000:3000 counseling-frontend
 ```
 
-Your local instance of Chatbot UI should now be running at [http://localhost:3000](http://localhost:3000). Be sure to use a compatible node version (i.e. v18).
+## Architecture Benefits
 
-You can view your backend GUI at [http://localhost:54323/project/default/editor](http://localhost:54323/project/default/editor).
+1. **Separation of Concerns**: Each component category has a specific responsibility
+2. **Maintainability**: Easier to locate and modify specific functionality
+3. **Testability**: Individual components can be tested in isolation
+4. **Reusability**: UI components can be reused across different pages
+5. **Readability**: Smaller, focused files are easier to understand
+6. **Scalability**: Modular design allows for easy extension and modification
+7. **Type Safety**: Full TypeScript support prevents runtime errors
+8. **Performance**: Optimized with Next.js features like code splitting and SSR
 
-## Hosted Quickstart
+## Migration Notes
 
-Follow these steps to get your own Chatbot UI instance running in the cloud.
-
-Video tutorial coming soon.
-
-### 1. Follow Local Quickstart
-
-Repeat steps 1-4 in "Local Quickstart" above.
-
-You will want separate repositories for your local and hosted instances.
-
-Create a new repository for your hosted instance of Chatbot UI on GitHub and push your code to it.
-
-### 2. Setup Backend with Supabase
-
-#### 1. Create a new project
-
-Go to [Supabase](https://supabase.com/) and create a new project.
-
-#### 2. Get Project Values
-
-Once you are in the project dashboard, click on the "Project Settings" icon tab on the far bottom left.
-
-Here you will get the values for the following environment variables:
-
-- `Project Ref`: Found in "General settings" as "Reference ID"
-
-- `Project ID`: Found in the URL of your project dashboard (Ex: https://supabase.com/dashboard/project/<YOUR_PROJECT_ID>/settings/general)
-
-While still in "Settings" click on the "API" text tab on the left.
-
-Here you will get the values for the following environment variables:
-
-- `Project URL`: Found in "API Settings" as "Project URL"
-
-- `Anon key`: Found in "Project API keys" as "anon public"
-
-- `Service role key`: Found in "Project API keys" as "service_role" (Reminder: Treat this like a password!)
-
-#### 3. Configure Auth
-
-Next, click on the "Authentication" icon tab on the far left.
-
-In the text tabs, click on "Providers" and make sure "Email" is enabled.
-
-We recommend turning off "Confirm email" for your own personal instance.
-
-#### 4. Connect to Hosted DB
-
-Open up your repository for your hosted instance of Chatbot UI.
-
-In the 1st migration file `supabase/migrations/20240108234540_setup.sql` you will need to replace 2 values with the values you got above:
-
-- `project_url` (line 53): Use the `Project URL` value from above
-- `service_role_key` (line 54): Use the `Service role key` value from above
-
-Now, open a terminal in the root directory of your local Chatbot UI repository. We will execute a few commands here.
-
-Login to Supabase by running:
-
-```bash
-supabase login
-```
-
-Next, link your project by running the following command with the "Project ID" you got above:
-
-```bash
-supabase link --project-ref <project-id>
-```
-
-Your project should now be linked.
-
-Finally, push your database to Supabase by running:
-
-```bash
-supabase db push
-```
-
-Your hosted database should now be set up!
-
-### 3. Setup Frontend with Vercel
-
-Go to [Vercel](https://vercel.com/) and create a new project.
-
-In the setup page, import your GitHub repository for your hosted instance of Chatbot UI. Within the project Settings, in the "Build & Development Settings" section, switch Framework Preset to "Next.js".
-
-In environment variables, add the following from the values you got above:
-
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `NEXT_PUBLIC_OLLAMA_URL` (only needed when using local Ollama models; default: `http://localhost:11434`)
-
-You can also add API keys as environment variables.
-
-- `OPENAI_API_KEY`
-- `AZURE_OPENAI_API_KEY`
-- `AZURE_OPENAI_ENDPOINT`
-- `AZURE_GPT_45_VISION_NAME`
-
-For the full list of environment variables, refer to the '.env.local.example' file. If the environment variables are set for API keys, it will disable the input in the user settings.
-
-Click "Deploy" and wait for your frontend to deploy.
-
-Once deployed, you should be able to use your hosted instance of Chatbot UI via the URL Vercel gives you.
-
-## Contributing
-
-We are working on a guide for contributing.
-
-## Contact
-
-Message Mckay on [Twitter/X](https://twitter.com/mckaywrigley)
+The frontend has been structured for optimal maintainability and scalability:
+- Components organized by functionality and reusability
+- Custom hooks for complex state management
+- Type definitions centralized in types/ directory
+- UI components built with shadcn/ui for consistency
+- Internationalization support built-in
+- WebSocket integration for real-time communication

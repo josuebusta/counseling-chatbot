@@ -1,10 +1,9 @@
 """
 Teachability manager for storing and retrieving conversation memories.
 """
-import os
 from autogen.agentchat.contrib.capabilities.teachability import Teachability
-from .config import DEFAULT_CONFIG
-from .database_config import get_user_teachability_path
+from config import DEFAULT_CONFIG
+from config import settings
 
 
 class TeachabilityManager:
@@ -21,10 +20,7 @@ class TeachabilityManager:
     def _initialize_teachability(self, llm_config: dict):
         """Initialize teachability components."""
         # Use centralized database path configuration
-        user_db_path = get_user_teachability_path(self.user_id)
-        
-        print(f"DEBUG: llm_config being passed to Teachability: {llm_config}")
-        print(f"DEBUG: API key in config_list: {llm_config.get('config_list', [{}])[0].get('api_key', 'NOT_FOUND')[:10]}...")
+        user_db_path = settings.get_user_teachability_path(self.user_id)
         
         self.teachability = Teachability(
             reset_db=False, 

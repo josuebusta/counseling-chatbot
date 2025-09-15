@@ -2,107 +2,35 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import logging
-import asyncio
-import os
-from dotenv import load_dotenv
-from agents import HIVPrEPCounselor
-from tools.functions import (
-    check_inactive_chats,
-    get_chat_history,
-    create_transcript
-)
-from contextlib import asynccontextmanager
-from datetime import datetime
-import warnings
+import sys
+from pathlib import Path
 
-# Load environment variables
-# Try loading from different possible locations
-env_loaded = False
-for env_path in ['.env', '../.env', './.env']:
-    if os.path.exists(env_path):
-        load_dotenv(env_path)
-        env_loaded = True
-        break
+# Add the modified packages to the path to override the installed autogen
+backend_dir = Path(__file__).parent
+modified_packages_dir = backend_dir / "modified_packages"
+sys.path.insert(0, str(modified_packages_dir))
 
-if not env_loaded:
-    print("Warning: No .env file found in expected locations")
+try:
+    # Try absolute import first (when running from project root)
+    from backend.services.counselor_session import HIVPrEPCounselor  # noqa: E402
+except ImportError:
+    # Fall back to relative import (when running from backend directory)
+    from services.counselor_session import HIVPrEPCounselor  # noqa: E402
+from startup import lifespan  # noqa: E402
+from config import settings  # noqa: E402
 
-# Ensure OPENAI_API_KEY is available for autogen
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    print("ERROR: OPENAI_API_KEY not found in environment variables")
-    print("Available environment variables with 'OPENAI' in name:")
-    for key, value in os.environ.items():
-        if 'OPENAI' in key.upper():
-            print(f"  {key}: {value[:10] if value else 'EMPTY'}...")
-    exit(1)
-
-# Set up autogen configuration
-
-# Suppress autogen API key validation warnings since we have a valid key
-warnings.filterwarnings(
-    "ignore",
-    message=".*API key specified is not a valid OpenAI format.*"
-)
-warnings.filterwarnings(
-    "ignore",
-    message=".*The API key specified is not a valid OpenAI format.*"
-)
-
-
-# Ensure the environment variable is set for autogen
-os.environ["OPENAI_API_KEY"] = api_key
-
-# Create a proper config list for autogen to use by default
-config_list = [
-    {
-        "model": "gpt-4o",
-        "api_key": api_key
-    }
-]
-
-logging.basicConfig(level=logging.INFO)
+# Set up logging
+log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
+logging.basicConfig(level=log_level)
 logger = logging.getLogger(__name__)
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup: Create task for checking inactive chats
-    task = asyncio.create_task(run_inactive_chat_checker())
-    yield
-    # Shutdown: Cancel the task
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        logger.info("Background task cancelled")
-
-
-async def run_inactive_chat_checker():
-    counter = 0
-    while True:
-        try:
-            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            logger.info(f"Running check #{counter} at {current_time}")
-
-            await get_chat_history()
-            await check_inactive_chats()
-            await create_transcript()
-
-            logger.info(f"Check #{counter} completed")
-            counter += 1
-            await asyncio.sleep(300)
-
-        except Exception as e:
-            logger.error(f"Error in check #{counter}: {e}")
-            await asyncio.sleep(60)  # Wait before retrying
 
 # Create FastAPI app with lifespan
 app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -140,16 +68,20 @@ async def websocket_endpoint(websocket: WebSocket):
             # Handle user_id message
             if message_type == "user_id":
                 user_id = content
-                workflow_manager = HIVPrEPCounselor(
-                    websocket, user_id, chat_id, teachability_flag)
+                # Only create workflow_manager if we don't have one yet
+                if workflow_manager is None:
+                    workflow_manager = HIVPrEPCounselor(
+                        websocket, user_id, chat_id, teachability_flag)
                 continue
 
             if message_type == "chat_id":
                 chat_id = content
                 if chat_id_received:
                     continue
-                workflow_manager = HIVPrEPCounselor(
-                    websocket, user_id, chat_id, teachability_flag)
+                # Only create workflow_manager if we don't have one yet
+                if workflow_manager is None:
+                    workflow_manager = HIVPrEPCounselor(
+                        websocket, user_id, chat_id, teachability_flag)
                 chat_id_received = True
                 continue
 
@@ -158,16 +90,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 try:
                     if "chat_id" in parsed_data:
                         continue
-                    # Pass the content string, not the entire parsed_data
+                    # Pass the content string
+                    # The GroupChatManager will handle WebSocket communication
                     await workflow_manager.initiate_chat(content)
-                    response = workflow_manager.get_latest_response()
-
-                    if response:
-                        await websocket.send_text(json.dumps({
-                            "type": "chat_response",
-                            "messageId": message_id,
-                            "content": response
-                        }))
+                    print("Chat processing completed - "
+                          "GroupChatManager handled WebSocket")
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")
                     error_message = ("I'm here to help. "

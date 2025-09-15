@@ -134,11 +134,6 @@ export const useChatHandler = () => {
   }, [isPromptPickerOpen, isFilePickerOpen, isToolPickerOpen])
 
   const handleNewChat = async () => {
-    // First close any existing WebSocket connection
-    if (wsManager) {
-        wsManager.close();
-    }
-
     // Reset all state
     setIsInitialMessageSent(false);
     setUserInput("");
@@ -159,21 +154,13 @@ export const useChatHandler = () => {
 
     if (!selectedWorkspace) return;
 
-    // Generate new chat ID and initialize WebSocket
+    // Generate new chat ID and update WebSocket connection
     const newChatId = uuidv4();
     setChatId(newChatId);
     
-    // Small delay to ensure the old connection is fully closed
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // Initialize new WebSocket connection with chat ID first
+    // Update chat ID on existing connection instead of creating new one
     console.log("newChatId", newChatId)
-    await wsManager.initializeWithChatId(newChatId);
-    
-    // Then initialize with user ID
-    if (profile?.user_id) {
-        await wsManager.initializeWithUserId(profile.user_id);
-    }
+    wsManager.updateChatId(newChatId);
     
     setIsInitialMessageSent(true);
 

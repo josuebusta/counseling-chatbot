@@ -119,9 +119,8 @@ useEffect(() => {
         return
       }
       console.log("initializeProfile3")
-      wsManager.initializeWithUserId(session.user.id); // removed await
-      const chatId = uuidv4();
-      wsManager.initializeWithChatId(chatId);
+      // Only initialize user_id here, let chat handler manage chat_id
+      await wsManager.initializeWithUserId(session.user.id);
       console.log("initializeProfile4")
 
       // // Initialize WebSocket manager with user ID
@@ -937,7 +936,7 @@ console.log("Querying for user ID:", session.user.id)
             <WithTooltip
               display={
                 <div>
-                  Download Chatbot UI 1.0 data as JSON. Import coming soon!
+                  Download Chatbot UI 1.0 data as JSON.
                 </div>
               }
               trigger={

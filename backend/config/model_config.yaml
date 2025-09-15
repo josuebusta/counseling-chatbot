@@ -1,0 +1,107 @@
+# Model configurations for different agents in the HIV PrEP Counselor system
+
+# Default model configuration
+default:
+  model: "gpt-4o"
+  temperature: 0.7
+  max_tokens: 4000
+  top_p: 1.0
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
+
+# HIV Counselor agent configuration
+hiv_counselor:
+  model: "gpt-4o"
+  temperature: 0.6  # Lower temperature for more consistent medical advice
+  max_tokens: 3000
+  top_p: 0.9
+  frequency_penalty: 0.1
+  presence_penalty: 0.1
+  system_message: |
+    You are a knowledgeable and empathetic HIV PrEP counselor. Your role is to provide accurate, 
+    evidence-based information about HIV prevention, PrEP (Pre-Exposure Prophylaxis), and sexual health. 
+    Always maintain a non-judgmental, supportive tone while ensuring all medical information is accurate 
+    and up-to-date.
+
+# Group Chat Manager configuration
+group_chat_manager:
+  model: "gpt-4o"
+  temperature: 0.8  # Higher temperature for more dynamic group interactions
+  max_tokens: 2000
+  top_p: 0.95
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
+  system_message: |
+    You are a group chat manager for HIV PrEP counseling sessions. Your role is to facilitate 
+    discussions, ensure all participants feel heard, and maintain a supportive environment for 
+    sharing experiences and questions about HIV prevention.
+
+# RAG System configuration
+rag_system:
+  model: "gpt-4o"
+  temperature: 0.5  # Lower temperature for more factual retrieval
+  max_tokens: 2500
+  top_p: 0.9
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
+  system_message: |
+    You are a retrieval-augmented generation system for HIV PrEP counseling. Your role is to 
+    provide accurate, evidence-based answers by combining retrieved information with your knowledge 
+    about HIV prevention and PrEP.
+
+# Teachability Manager configuration
+teachability_manager:
+  model: "gpt-4o"
+  temperature: 0.7
+  max_tokens: 2000
+  top_p: 0.9
+  frequency_penalty: 0.1
+  presence_penalty: 0.1
+  system_message: |
+    You are a teachability manager for the HIV PrEP counseling system. Your role is to learn 
+    from user interactions, identify knowledge gaps, and suggest improvements to the counseling 
+    system based on user feedback and questions.
+
+# Embedding model configuration
+embeddings:
+  model: "text-embedding-3-small"
+  dimensions: 1536
+  chunk_size: 500
+  chunk_overlap: 50
+
+# Retrieval configuration
+retrieval:
+  k: 3
+  recall_threshold: 2.5
+  similarity_threshold: 0.7
+
+# Conversation flow configuration
+conversation:
+  max_rounds: 12
+  timeout_seconds: 300
+  verbosity: 1
+  enable_memory: true
+  memory_window: 10  # Number of previous messages to keep in context
+
+# Agent-specific configurations
+agents:
+  hiv_counselor:
+    max_conversation_length: 50
+    enable_function_calling: true
+    enable_web_search: false
+    enable_code_execution: false
+    
+  group_chat_manager:
+    max_participants: 10
+    enable_moderation: true
+    enable_anonymous_mode: true
+    
+  rag_system:
+    max_retrieval_documents: 5
+    enable_reranking: true
+    enable_metadata_filtering: true
+    
+  teachability_manager:
+    learning_rate: 0.1
+    enable_feedback_learning: true
+    enable_pattern_recognition: true

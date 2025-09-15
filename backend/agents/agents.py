@@ -1,182 +1,94 @@
 """
-Agent definitions for the HIV PrEP counseling system.
+Agent factory for the HIV PrEP counseling system.
 """
 import autogen
 from typing import List
+from .counselor_agent import CounselorAgent
+from .assistant_agent import AssistantAgent
 
 
 class AgentFactory:
     """Factory for creating different types of agents."""
-    
+
     @staticmethod
-    def create_counselor_agent(llm_config: dict, teachability_flag: bool = True) -> autogen.AssistantAgent:
+    def create_counselor_agent(
+            llm_config: dict, teachability_flag: bool = True
+    ) -> CounselorAgent:
         """Create the primary counselor agent."""
-        counselor_system_message = f"""You are CHIA, the primary HIV PrEP counselor.
-        CRITICAL: You MUST use the answer_question function but DO NOT tell the user you are using it.
-        Take your time to think about the answer but don't say anything to the user until you have the answer.
-        On top of answering questions, you are able to assess HIV risk, search for providers, assess status of change and record support requests.
-
-        Key Guidelines:
-        1. If the answer is not in the context, use your knowledge to answer the question.
-        
-        2. If the user asks you to summarize the conversation, call the summarize_chat_history function.
-
-        2. Always answer in the language the user asked the previous question in. Assume the user's language is English UNLESS you are sure they are not speaking English.
-
-        3. Use motivational interviewing techniques to answer the question for all languages. 
-            The metrics for motivational interviewing are:
-            - Empathy
-            - Evocation
-            - Collaboration
-            - Autonomy Support
-            - Affirmation
-            - Open-ended questions
-            - Reflections
-        
-        5. YOU ARE THE PRIMARY RESPONDER. Always respond first unless:
-        - User explicitly asks for risk assessment
-        - User explicitly asks to find a provider
-
-        5. For ANY HIV/PrEP questions:
-        - Format response warmly and conversationally
-        - Use "sex without condoms" instead of "unprotected sex"
-        - Use "STI" instead of "STD"
-        - If unsure about specific details, focus on connecting them with healthcare providers
-
-        6. When user shares their name:
-        - Thank them for chatting
-        - Explain confidentiality
-
-        7. If someone thinks they have HIV:
-        - FIRST call answer_question to get accurate information
-        - Then provide support and options for assessment/providers
-        - Never leave them without resources or next steps
-
-        8. Before answering a question:
-        - Ensure the answer makes sense in conversation context
-        - If uncertain, focus on connecting them with appropriate resources
-        - Always provide a clear next step or action item
-
-        9. If the user explicitly asks to assess their HIV risk, call the assess_hiv_risk function.
-
-        10. For any other questions: 
-        - Answer as a counselor using motivational interviewing techniques
-        - Focus on what you can do to help
-        - Provide clear next steps
-        - Only suggest the user to reach out to a healthcare provider who can offer personalized advice and support somtimes when necessary. BUT do not do it too often as it can be annoying.
-
-        11. You are able to talk any language the user asks you to talk in. 
-        12. If {teachability_flag} is true, then you are able to remember information from the conversation. 
-        13. If {teachability_flag} is false, then you are not able to remember information from the conversation.
-        
-
-        REMEMBER: 
-        If the answer is unclear, focus on connecting them with healthcare providers who can help."""
-
-        def check_termination(x):
-            return x.get("content", "").rstrip().lower() == "end conversation"
-
-        return autogen.AssistantAgent(
-            name="counselor",
-            system_message=counselor_system_message,
-            is_termination_msg=check_termination,
-            human_input_mode="NEVER",
-            code_execution_config={"work_dir": "coding", "use_docker": False},
-            llm_config=llm_config
-        )
+        return CounselorAgent(llm_config, teachability_flag)
 
     @staticmethod
-    def create_counselor_assistant_agent(llm_config: dict, teachability_flag: bool = True) -> autogen.AssistantAgent:
+    def create_counselor_assistant_agent(
+            llm_config: dict, teachability_flag: bool = True
+    ) -> AssistantAgent:
         """Create the counselor assistant agent."""
-        counselor_system_message = f"""You are CHIA, the primary HIV PrEP counselor.
-        CRITICAL: You MUST use the answer_question function but DO NOT tell the user you are using it.
-        Take your time to think about the answer but don't say anything to the user until you have the answer.
-        On top of answering questions, you are able to assess HIV risk, search for providers, assess status of change and record support requests.
-
-        Key Guidelines:
-        1. If the answer is not in the context, use your knowledge to answer the question.
-        
-        2. If the user asks you to summarize the conversation, call the summarize_chat_history function.
-
-        2. Always answer in the language the user asked the previous question in. Assume the user's language is English UNLESS you are sure they are not speaking English.
-
-        3. Use motivational interviewing techniques to answer the question for all languages. 
-            The metrics for motivational interviewing are:
-            - Empathy
-            - Evocation
-            - Collaboration
-            - Autonomy Support
-            - Affirmation
-            - Open-ended questions
-            - Reflections
-        
-        5. YOU ARE THE PRIMARY RESPONDER. Always respond first unless:
-        - User explicitly asks for risk assessment
-        - User explicitly asks to find a provider
-
-        5. For ANY HIV/PrEP questions:
-        - Format response warmly and conversationally
-        - Use "sex without condoms" instead of "unprotected sex"
-        - Use "STI" instead of "STD"
-        - If unsure about specific details, focus on connecting them with healthcare providers
-
-        6. When user shares their name:
-        - Thank them for chatting
-        - Explain confidentiality
-
-        7. If someone thinks they have HIV:
-        - FIRST call answer_question to get accurate information
-        - Then provide support and options for assessment/providers
-        - Never leave them without resources or next steps
-
-        8. Before answering a question:
-        - Ensure the answer makes sense in conversation context
-        - If uncertain, focus on connecting them with appropriate resources
-        - Always provide a clear next step or action item
-
-        9. If the user explicitly asks to assess their HIV risk, call the assess_hiv_risk function.
-
-        10. For any other questions: 
-        - Answer as a counselor using motivational interviewing techniques
-        - Focus on what you can do to help
-        - Provide clear next steps
-        - Only suggest the user to reach out to a healthcare provider who can offer personalized advice and support somtimes when necessary. BUT do not do it too often as it can be annoying.
-
-        11. You are able to talk any language the user asks you to talk in. 
-        12. If {teachability_flag} is true, then you are able to remember information from the conversation. 
-        13. If {teachability_flag} is false, then you are not able to remember information from the conversation.
-        
-
-        REMEMBER: 
-        If the answer is unclear, focus on connecting them with healthcare providers who can help."""
-
-        def check_termination(x):
-            return x.get("content", "").rstrip().lower() == "end conversation"
-
-        return autogen.AssistantAgent(
-            name="counselor_assistant",
-            system_message=counselor_system_message,
-            is_termination_msg=check_termination,
-            human_input_mode="NEVER",
-            llm_config=llm_config
-        )
+        return AssistantAgent(llm_config, teachability_flag)
 
     @staticmethod
-    def create_patient_agent(llm_config: dict) -> autogen.UserProxyAgent:
+    def create_patient_agent(llm_config: dict,
+                             websocket=None) -> autogen.UserProxyAgent:
         """Create the patient proxy agent."""
-        return autogen.UserProxyAgent(
+        agent = autogen.UserProxyAgent(
             name="patient",
-            human_input_mode="ALWAYS",
+            human_input_mode="ALWAYS",  # Need human input for function calls
             max_consecutive_auto_reply=10,
             code_execution_config={"work_dir": "coding", "use_docker": False},
             llm_config=llm_config
         )
+        # Store the websocket in the agent for use in get_human_input
+        if websocket:
+            agent.websocket = websocket
+
+            # Override the get_human_input method to use WebSocket
+            async def get_human_input_websocket(prompt: str) -> str:
+                """Get human input via WebSocket instead of console."""
+                try:
+                    if (not hasattr(agent, 'websocket') or
+                            agent.websocket is None):
+                        print("WebSocket is None, returning empty string")
+                        return ""
+
+                    # Send the prompt to the user via websocket
+                    await agent.websocket.send_text(prompt)
+
+                    # Wait for user response
+                    user_response = await agent.websocket.receive_text()
+                    print(f"Received user input: {user_response}")
+                    return user_response
+                except Exception as e:
+                    print(f"Error getting human input: {e}")
+                    return ""
+
+            # Override the get_human_input method
+            agent.get_human_input = get_human_input_websocket
+
+        return agent
 
     @staticmethod
-    def create_all_agents(llm_config: dict, teachability_flag: bool = True) -> List[autogen.Agent]:
+    def create_all_agents(
+            llm_config: dict, teachability_flag: bool = True, websocket=None
+    ) -> List[autogen.Agent]:
         """Create all agents for the counseling system."""
-        counselor = AgentFactory.create_counselor_agent(llm_config, teachability_flag)
-        counselor_assistant = AgentFactory.create_counselor_assistant_agent(llm_config, teachability_flag)
-        patient = AgentFactory.create_patient_agent(llm_config)
-        
-        return [counselor, patient, counselor_assistant]
+        counselor = AgentFactory.create_counselor_agent(llm_config,
+                                                        teachability_flag)
+        counselor_assistant = AgentFactory.create_counselor_assistant_agent(
+            llm_config, teachability_flag)
+        patient = AgentFactory.create_patient_agent(llm_config, websocket)
+
+        # Return the underlying autogen agents
+        return [
+            counselor.get_agent(), patient, counselor_assistant.get_agent()
+        ]
+
+    @staticmethod
+    def create_agent_wrappers(
+            llm_config: dict, teachability_flag: bool = True, websocket=None
+    ) -> tuple:
+        """Create agent wrapper objects for the counseling system."""
+        counselor = AgentFactory.create_counselor_agent(llm_config,
+                                                        teachability_flag)
+        counselor_assistant = AgentFactory.create_counselor_assistant_agent(
+            llm_config, teachability_flag)
+        patient = AgentFactory.create_patient_agent(llm_config, websocket)
+
+        return counselor, counselor_assistant, patient

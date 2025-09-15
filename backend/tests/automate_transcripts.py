@@ -16,7 +16,7 @@ if project_root not in sys.path:
 
 #
 try:
-    from backend.CHIA.CHIA_LangchainEmbeddings import HIVPrEPCounselor
+    from backend.services.counselor_session import HIVPrEPCounselor
 except ImportError:
     print("Error: Could not import HIVPrEPCounselor. Ensure structure and sys.path are correct.")
     sys.exit(1)
