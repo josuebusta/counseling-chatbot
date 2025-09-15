@@ -8,3 +8,7 @@ node_modules/
 .idea/
 .next/
 counseling-env/
+.cache/
+FastAPI/data/vector_store/chroma_db/
+FastAPI/data/vector_store/tmp/
+*.pem

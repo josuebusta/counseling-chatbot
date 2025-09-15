@@ -1,0 +1,76 @@
+FROM node:18-slim AS builder
+
+# Install required dependencies for sharp
+RUN apt-get update && \
+    apt-get install -y build-essential python3 libvips-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create directory with proper permissions first
+RUN mkdir -p /frontend && \
+    chown -R node:node /frontend
+
+WORKDIR /frontend
+
+# Configure npm for non-root global installations
+RUN mkdir -p /home/node/.npm-global && \
+    chown -R node:node /home/node/.npm-global
+
+# Switch to node user before any npm operations
+USER node
+
+# Configure npm to use the custom directory
+ENV PATH=/home/node/.npm-global/bin:$PATH
+ENV NPM_CONFIG_PREFIX=/home/node/.npm-global
+
+# Copy package files FIRST with correct ownership
+COPY --chown=node:node ./package*.json ./
+
+# Install dependencies as node user
+RUN npm cache clean --force && \
+    npm install --legacy-peer-deps --production=false && \
+    npm install -g browserslist && \
+    npx update-browserslist-db@latest
+
+# Copy the rest of the application with correct ownership, excluding node_modules
+COPY --chown=node:node ./next.config.js ./
+COPY --chown=node:node ./public ./public
+COPY --chown=node:node ./src ./src
+COPY --chown=node:node ./app ./app
+COPY --chown=node:node ./components ./components
+COPY --chown=node:node ./lib ./lib
+COPY --chown=node:node ./styles ./styles
+COPY --chown=node:node ./types ./types
+COPY --chown=node:node ./utils ./utils
+COPY --chown=node:node ./.env* ./
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_OPTIONS="--max_old_space_size=4096"
+ENV DOCKER_BUILD=true
+
+# Build the application
+RUN npm run build
+
+
+# Production stage
+FROM node:18-slim AS runner
+
+WORKDIR /frontend
+
+# Create directory and set permissions
+RUN mkdir -p /frontend && \
+    chown -R node:node /frontend
+
+# Switch to node user
+USER node
+
+# Copy only necessary files from builder
+COPY --from=builder --chown=node:node /frontend/next.config.js ./
+COPY --from=builder --chown=node:node /frontend/public ./public
+COPY --from=builder --chown=node:node /frontend/.next ./.next
+COPY --from=builder --chown=node:node /frontend/node_modules ./node_modules
+COPY --from=builder --chown=node:node /frontend/package.json ./package.json
+
+# Start the application
+CMD ["npm", "start"]

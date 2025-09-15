@@ -1,7 +1,7 @@
 {
   "scripts": {
-    "start-backend": "source counseling-env/bin/activate && cd FastAPI && uvicorn main:app --reload",
-    "start-frontend": "cd chatbot-ui-shadcn && npm run build && npm run start"
+    "start-backend": "source counseling-env/bin/activate && cd backend && uvicorn main:app --reload",
+    "start-frontend": "cd frontend && npm run build && npm run start"
   },
   "devDependencies": {
     "clean-webpack-plugin": "^4.0.0",
